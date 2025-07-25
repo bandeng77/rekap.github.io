@@ -1,69 +1,208 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Rekap Barang ATK 2025</title>
+
+  <!-- Style -->
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
       padding: 20px;
-      background-color: #f9f9f9;
+      margin: 0;
     }
+
     h1 {
       text-align: center;
-      color: #333;
+      margin-bottom: 20px;
+      color: #2c3e50;
     }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-top: 20px;
-      background-color: #fff;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 10px;
     }
-    th, td {
+
+    select, input[type="text"], button {
+      padding: 8px;
       border: 1px solid #ccc;
-      padding: 10px;
-      text-align: center;
+      border-radius: 6px;
+      font-size: 14px;
     }
+
+    button {
+      cursor: pointer;
+      background-color: #3498db;
+      color: white;
+      border: none;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      background: #fff;
+      border-radius: 10px;
+      padding: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 600px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
     th {
-      background-color: #eaeaea;
+      background-color: #3498db;
+      color: white;
     }
+
     tr:nth-child(even) {
-      background-color: #f6f6f6;
+      background-color: #f9f9f9;
+    }
+
+    @media (max-width: 600px) {
+      .controls {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>Rekap Barang ATK 2025</h1>
-  <table id="rekapTable">
-    <thead></thead>
-    <tbody></tbody>
-  </table>
 
+  <h1>Rekap Barang ATK 2025</h1>
+
+  <!-- Filter, Search, Export -->
+  <div class="controls">
+    <select id="filterDropdown">
+      <option value="">Semua Kategori</option>
+    </select>
+
+    <input type="text" id="searchBox" placeholder="Cari barang..."/>
+
+    <div>
+      <button onclick="downloadExcel()">Download Excel</button>
+      <button onclick="downloadPDF()">Download PDF</button>
+    </div>
+  </div>
+
+  <!-- Tabel -->
+  <div class="table-container">
+    <table id="rekapTable">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Script -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>
     const sheetID = '1AlxZR5kufSMd2oWZScDGjnB_fwJBaBvxDwPyhLtS3uc';
     const sheetName = 'Sheet1';
-    const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
+    const url = `https://opensheet.elk.sh/${sheetID}/${sheetName}`;
+    let allData = []; // cache data
+
+    const table = document.querySelector('#rekapTable');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    const filterDropdown = document.getElementById('filterDropdown');
+    const searchBox = document.getElementById('searchBox');
 
     fetch(url)
-      .then(response => response.text())
-      .then(csv => {
-        const rows = csv.trim().split('\n').map(row => row.split(','));
-        const thead = document.querySelector('#rekapTable thead');
-        const tbody = document.querySelector('#rekapTable tbody');
-
-        // Tampilkan header tabel
-        thead.innerHTML = '<tr>' + rows[0].map(h => `<th>${h}</th>`).join('') + '</tr>';
-
-        // Tampilkan isi data
-        for (let i = 1; i < rows.length; i++) {
-          const rowHTML = rows[i].map(cell => `<td>${cell}</td>`).join('');
-          tbody.innerHTML += `<tr>${rowHTML}</tr>`;
-        }
-      })
-      .catch(error => {
-        document.body.innerHTML += `<p style="color:red;">Gagal memuat data: ${error}</p>`;
+      .then(res => res.json())
+      .then(data => {
+        allData = data;
+        renderTable(allData);
+        populateDropdown(allData, 'Kategori'); // ganti 'Kategori' sesuai nama kolom filter
       });
+
+    function renderTable(data) {
+      if (data.length === 0) return;
+
+      // Header
+      const headers = Object.keys(data[0]);
+      thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+
+      // Data
+      tbody.innerHTML = '';
+      data.forEach(row => {
+        const rowHTML = headers.map(key => `<td>${row[key] || ''}</td>`).join('');
+        tbody.innerHTML += `<tr>${rowHTML}</tr>`;
+      });
+    }
+
+    function populateDropdown(data, columnName) {
+      const values = [...new Set(data.map(row => row[columnName]).filter(v => v))];
+      values.sort().forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        filterDropdown.appendChild(option);
+      });
+    }
+
+    function filterAndSearch() {
+      const selected = filterDropdown.value.toLowerCase();
+      const keyword = searchBox.value.toLowerCase();
+
+      const filtered = allData.filter(row => {
+        const matchFilter = !selected || (row['Kategori'] || '').toLowerCase() === selected;
+        const matchSearch = Object.values(row).some(value =>
+          (value || '').toLowerCase().includes(keyword)
+        );
+        return matchFilter && matchSearch;
+      });
+
+      renderTable(filtered);
+    }
+
+    filterDropdown.addEventListener('change', filterAndSearch);
+    searchBox.addEventListener('input', filterAndSearch);
+
+    // Download Excel
+    function downloadExcel() {
+      const worksheet = XLSX.utils.json_to_sheet(allData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Rekap ATK');
+      XLSX.writeFile(workbook, 'Rekap_ATK_2025.xlsx');
+    }
+
+    // Download PDF
+    async function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.text("Rekap Barang ATK 2025", 10, 10);
+
+      let rows = allData.map(row => Object.values(row));
+      let headers = Object.keys(allData[0]);
+
+      doc.autoTable({
+        head: [headers],
+        body: rows,
+        startY: 20,
+        styles: { fontSize: 8 }
+      });
+
+      doc.save("Rekap_ATK_2025.pdf");
+    }
   </script>
+
+  <!-- AutoTable Plugin for jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </body>
 </html>
