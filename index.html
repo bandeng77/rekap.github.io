@@ -3,67 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <title>Rekap Barang ATK 2025</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f7f7f7;
-      padding: 20px;
-    }
-    h1 {
-      text-align: center;
-      color: #333;
-    }
-    .controls {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 15px;
-      flex-wrap: wrap;
-    }
-    .controls > * {
-      margin: 5px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: center;
-    }
-    th {
-      background-color: #2196f3;
-      color: white;
-    }
-    input, select, button {
-      padding: 6px;
-    }
-    button {
-      background-color: #2196f3;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #1976d2;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h1 { text-align: center; }
+    #controls { margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #f2f2f2; }
+    button { padding: 8px 12px; }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
+
   <h1>Rekap Barang ATK 2025</h1>
 
-  <div class="controls">
+  <div id="controls">
+    <input type="text" id="searchInput" placeholder="Cari barang...">
     <select id="filterKategori">
       <option value="">Semua Kategori</option>
     </select>
-    <input type="text" id="searchInput" placeholder="Cari barang...">
-    <div>
-      <button onclick="downloadExcel()">Download Excel</button>
-      <button onclick="downloadPDF()">Download PDF</button>
-    </div>
+    <button onclick="exportToExcel()">Download Excel</button>
+    <button onclick="exportToPDF()">Download PDF</button>
   </div>
 
   <table id="rekapTable">
@@ -73,22 +35,29 @@
 
   <script>
     const sheetID = '1AlxZR5kufSMd2oWZScDGjnB_fwJBaBvxDwPyhLtS3uc';
-    const sheetName = 'Sheet1';
-    const url = `https://opensheet.elk.sh/${sheetID}/${sheetName}`;
-
+    const url = `https://opensheet.elk.sh/${sheetID}/Sheet1`;
     let allData = [];
 
     fetch(url)
       .then(res => res.json())
       .then(json => {
-        // Cari header yang valid, misalnya memiliki kolom "Kategori"
-        const headerRow = json.find(row => row['Kategori'] !== undefined);
-        if (!headerRow) throw new Error('Header tidak ditemukan');
+        const headerRowIndex = json.findIndex(row =>
+          row["No"]?.trim().toLowerCase() === "no" &&
+          row["Nama Barang"]?.trim().toLowerCase() === "nama barang"
+        );
 
-        const headers = Object.keys(headerRow);
-        const startIndex = json.indexOf(headerRow);
+        if (headerRowIndex === -1) throw new Error("Header tidak ditemukan");
 
-        allData = json.slice(startIndex + 1).filter(row => row['Nama Barang']);
+        const headers = Object.values(json[headerRowIndex]);
+        const data = json.slice(headerRowIndex + 1);
+
+        allData = data.map(row => {
+          const newRow = {};
+          headers.forEach((h, i) => {
+            newRow[h] = Object.values(row)[i] ?? '';
+          });
+          return newRow;
+        });
 
         renderTable(allData, headers);
         populateDropdown(allData);
@@ -103,60 +72,54 @@
     function renderTable(data, headers) {
       const thead = document.querySelector('#rekapTable thead');
       const tbody = document.querySelector('#rekapTable tbody');
-
-      thead.innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+      thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
       tbody.innerHTML = data.map(row => {
-        return '<tr>' + headers.map(h => `<td>${row[h] || ''}</td>`).join('') + '</tr>';
+        return `<tr>${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>`;
       }).join('');
     }
 
     function populateDropdown(data) {
-      const kategoriSet = new Set(data.map(r => r['Kategori']).filter(k => k));
-      const filter = document.getElementById('filterKategori');
-
-      kategoriSet.forEach(kat => {
-        const opt = document.createElement('option');
-        opt.value = kat;
-        opt.textContent = kat;
-        filter.appendChild(opt);
+      const kategoriSet = new Set(data.map(row => row['Kategori']).filter(Boolean));
+      const select = document.getElementById('filterKategori');
+      select.innerHTML = '<option value="">Semua Kategori</option>';
+      [...kategoriSet].sort().forEach(kat => {
+        select.innerHTML += `<option value="${kat}">${kat}</option>`;
       });
     }
 
     function filterData() {
       const keyword = document.getElementById('searchInput').value.toLowerCase();
-      const selectedKategori = document.getElementById('filterKategori').value;
-
+      const kategori = document.getElementById('filterKategori').value;
       const filtered = allData.filter(row => {
-        const matchKategori = !selectedKategori || row['Kategori'] === selectedKategori;
-        const matchSearch = Object.values(row).some(v => (v || '').toString().toLowerCase().includes(keyword));
-        return matchKategori && matchSearch;
+        const cocokKategori = kategori === '' || row['Kategori'] === kategori;
+        const cocokCari = Object.values(row).some(val =>
+          String(val).toLowerCase().includes(keyword)
+        );
+        return cocokKategori && cocokCari;
       });
-
-      const headers = Object.keys(allData[0]);
-      renderTable(filtered, headers);
+      renderTable(filtered, Object.keys(allData[0]));
     }
 
-    function downloadExcel() {
+    function exportToExcel() {
       const ws = XLSX.utils.json_to_sheet(allData);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Rekap");
-      XLSX.writeFile(wb, "Rekap_ATK_2025.xlsx");
+      XLSX.utils.book_append_sheet(wb, ws, "Rekap Barang");
+      XLSX.writeFile(wb, "Rekap_Barang_ATK_2025.xlsx");
     }
 
-    async function downloadPDF() {
+    async function exportToPDF() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-
       const headers = Object.keys(allData[0]);
       const rows = allData.map(row => headers.map(h => row[h] || ''));
-
-      doc.text("Rekap Barang ATK 2025", 14, 16);
-      doc.autoTable({ startY: 20, head: [headers], body: rows });
-      doc.save("Rekap_ATK_2025.pdf");
+      doc.autoTable({
+        head: [headers],
+        body: rows,
+        startY: 20
+      });
+      doc.save("Rekap_Barang_ATK_2025.pdf");
     }
   </script>
 
-  <!-- Include AutoTable for PDF export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 </body>
 </html>
