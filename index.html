@@ -1,125 +1,208 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Rekap Barang ATK 2025</title>
+
+  <!-- Style -->
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    h1 { text-align: center; }
-    #controls { margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background-color: #f2f2f2; }
-    button { padding: 8px 12px; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+      padding: 20px;
+      margin: 0;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #2c3e50;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 10px;
+    }
+
+    select, input[type="text"], button {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    button {
+      cursor: pointer;
+      background-color: #3498db;
+      color: white;
+      border: none;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      background: #fff;
+      border-radius: 10px;
+      padding: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 600px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #3498db;
+      color: white;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+
+    @media (max-width: 600px) {
+      .controls {
+        flex-direction: column;
+      }
+    }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
   <h1>Rekap Barang ATK 2025</h1>
 
-  <div id="controls">
-    <input type="text" id="searchInput" placeholder="Cari barang...">
-    <select id="filterKategori">
+  <!-- Filter, Search, Export -->
+  <div class="controls">
+    <select id="filterDropdown">
       <option value="">Semua Kategori</option>
     </select>
-    <button onclick="exportToExcel()">Download Excel</button>
-    <button onclick="exportToPDF()">Download PDF</button>
+
+    <input type="text" id="searchBox" placeholder="Cari barang..."/>
+
+    <div>
+      <button onclick="downloadExcel()">Download Excel</button>
+      <button onclick="downloadPDF()">Download PDF</button>
+    </div>
   </div>
 
-  <table id="rekapTable">
-    <thead></thead>
-    <tbody></tbody>
-  </table>
+  <!-- Tabel -->
+  <div class="table-container">
+    <table id="rekapTable">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
+  <!-- Script -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>
     const sheetID = '1AlxZR5kufSMd2oWZScDGjnB_fwJBaBvxDwPyhLtS3uc';
-    const url = `https://opensheet.elk.sh/${sheetID}/Sheet1`;
-    let allData = [];
+    const sheetName = 'Sheet1';
+    const url = `https://opensheet.elk.sh/${sheetID}/${sheetName}`;
+    let allData = []; // cache data
+
+    const table = document.querySelector('#rekapTable');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    const filterDropdown = document.getElementById('filterDropdown');
+    const searchBox = document.getElementById('searchBox');
 
     fetch(url)
       .then(res => res.json())
-      .then(json => {
-        const headerRowIndex = json.findIndex(row =>
-          row["No"]?.trim().toLowerCase() === "no" &&
-          row["Nama Barang"]?.trim().toLowerCase() === "nama barang"
-        );
-
-        if (headerRowIndex === -1) throw new Error("Header tidak ditemukan");
-
-        const headers = Object.values(json[headerRowIndex]);
-        const data = json.slice(headerRowIndex + 1);
-
-        allData = data.map(row => {
-          const newRow = {};
-          headers.forEach((h, i) => {
-            newRow[h] = Object.values(row)[i] ?? '';
-          });
-          return newRow;
-        });
-
-        renderTable(allData, headers);
-        populateDropdown(allData);
-
-        document.getElementById('searchInput').addEventListener('input', filterData);
-        document.getElementById('filterKategori').addEventListener('change', filterData);
-      })
-      .catch(err => {
-        document.body.innerHTML += `<p style="color:red">Gagal memuat data: ${err}</p>`;
+      .then(data => {
+        allData = data;
+        renderTable(allData);
+        populateDropdown(allData, 'Kategori'); // ganti 'Kategori' sesuai nama kolom filter
       });
 
-    function renderTable(data, headers) {
-      const thead = document.querySelector('#rekapTable thead');
-      const tbody = document.querySelector('#rekapTable tbody');
+    function renderTable(data) {
+      if (data.length === 0) return;
+
+      // Header
+      const headers = Object.keys(data[0]);
       thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
-      tbody.innerHTML = data.map(row => {
-        return `<tr>${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>`;
-      }).join('');
-    }
 
-    function populateDropdown(data) {
-      const kategoriSet = new Set(data.map(row => row['Kategori']).filter(Boolean));
-      const select = document.getElementById('filterKategori');
-      select.innerHTML = '<option value="">Semua Kategori</option>';
-      [...kategoriSet].sort().forEach(kat => {
-        select.innerHTML += `<option value="${kat}">${kat}</option>`;
+      // Data
+      tbody.innerHTML = '';
+      data.forEach(row => {
+        const rowHTML = headers.map(key => `<td>${row[key] || ''}</td>`).join('');
+        tbody.innerHTML += `<tr>${rowHTML}</tr>`;
       });
     }
 
-    function filterData() {
-      const keyword = document.getElementById('searchInput').value.toLowerCase();
-      const kategori = document.getElementById('filterKategori').value;
+    function populateDropdown(data, columnName) {
+      const values = [...new Set(data.map(row => row[columnName]).filter(v => v))];
+      values.sort().forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        filterDropdown.appendChild(option);
+      });
+    }
+
+    function filterAndSearch() {
+      const selected = filterDropdown.value.toLowerCase();
+      const keyword = searchBox.value.toLowerCase();
+
       const filtered = allData.filter(row => {
-        const cocokKategori = kategori === '' || row['Kategori'] === kategori;
-        const cocokCari = Object.values(row).some(val =>
-          String(val).toLowerCase().includes(keyword)
+        const matchFilter = !selected || (row['Kategori'] || '').toLowerCase() === selected;
+        const matchSearch = Object.values(row).some(value =>
+          (value || '').toLowerCase().includes(keyword)
         );
-        return cocokKategori && cocokCari;
+        return matchFilter && matchSearch;
       });
-      renderTable(filtered, Object.keys(allData[0]));
+
+      renderTable(filtered);
     }
 
-    function exportToExcel() {
-      const ws = XLSX.utils.json_to_sheet(allData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Rekap Barang");
-      XLSX.writeFile(wb, "Rekap_Barang_ATK_2025.xlsx");
+    filterDropdown.addEventListener('change', filterAndSearch);
+    searchBox.addEventListener('input', filterAndSearch);
+
+    // Download Excel
+    function downloadExcel() {
+      const worksheet = XLSX.utils.json_to_sheet(allData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Rekap ATK');
+      XLSX.writeFile(workbook, 'Rekap_ATK_2025.xlsx');
     }
 
-    async function exportToPDF() {
+    // Download PDF
+    async function downloadPDF() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-      const headers = Object.keys(allData[0]);
-      const rows = allData.map(row => headers.map(h => row[h] || ''));
+      doc.text("Rekap Barang ATK 2025", 10, 10);
+
+      let rows = allData.map(row => Object.values(row));
+      let headers = Object.keys(allData[0]);
+
       doc.autoTable({
         head: [headers],
         body: rows,
-        startY: 20
+        startY: 20,
+        styles: { fontSize: 8 }
       });
-      doc.save("Rekap_Barang_ATK_2025.pdf");
+
+      doc.save("Rekap_ATK_2025.pdf");
     }
   </script>
 
+  <!-- AutoTable Plugin for jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </body>
 </html>
