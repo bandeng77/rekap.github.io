@@ -4,10 +4,33 @@
   <meta charset="UTF-8">
   <title>Rekap Barang ATK 2025</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background-color: #f2f2f2; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 20px;
+      background-color: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #eaeaea;
+    }
+    tr:nth-child(even) {
+      background-color: #f6f6f6;
+    }
   </style>
 </head>
 <body>
@@ -19,8 +42,8 @@
 
   <script>
     const sheetID = '1AlxZR5kufSMd2oWZScDGjnB_fwJBaBvxDwPyhLtS3uc';
-    const sheetName = 'Sheet1'; // ganti dengan nama sheet jika berbeda
-    const url = `https://docs.google.com/spreadsheets/d/${1AlxZR5kufSMd2oWZScDGjnB_fwJBaBvxDwPyhLtS3uc}/gviz/tq?tqx=out:csv&sheet=${Sheet1}`;
+    const sheetName = 'Sheet1';
+    const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
 
     fetch(url)
       .then(response => response.text())
@@ -29,7 +52,10 @@
         const thead = document.querySelector('#rekapTable thead');
         const tbody = document.querySelector('#rekapTable tbody');
 
+        // Tampilkan header tabel
         thead.innerHTML = '<tr>' + rows[0].map(h => `<th>${h}</th>`).join('') + '</tr>';
+
+        // Tampilkan isi data
         for (let i = 1; i < rows.length; i++) {
           const rowHTML = rows[i].map(cell => `<td>${cell}</td>`).join('');
           tbody.innerHTML += `<tr>${rowHTML}</tr>`;
