@@ -873,6 +873,46 @@ async function addOrder() {
         alert("Gagal menambahkan pemesanan: " + error.message);
     }
 }
+async function updateSelectedDayOrders(date) {
+    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const selectedDayOrdersTitle = document.getElementById('selectedDayOrdersTitle');
+    selectedDayOrdersTitle.textContent = `Pemesanan untuk ${date.getDate()} ${monthNames[date.getMonth()]}`;
+    
+    selectedDayOrdersContainer.innerHTML = ''; // Clear previous orders
+
+    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    
+    // Ambil data pemesanan dari Firestore berdasarkan tanggal
+    try {
+        const snapshot = await db.collection("orders").where("orderDate", "==", firebase.firestore.Timestamp.fromDate(date)).get();
+        const ordersForDay = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        if (ordersForDay.length === 0) {
+            selectedDayOrdersContainer.innerHTML = `<p class="text-sm text-gray-500 text-center">Tidak ada pemesanan untuk tanggal ini.</p>`;
+            todayOrdersElement.textContent = '0';
+        } else {
+            ordersForDay.forEach(order => {
+                const orderDiv = document.createElement('div');
+                orderDiv.className = 'flex items-start p-3 bg-gray-50 rounded-lg';
+                orderDiv.innerHTML = `
+                    <div class="mr-3 mt-1">
+                        <i class="fas fa-file-alt text-indigo-500"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium">Pesanan #${order.orderId}</p>
+                        <p class="text-xs text-gray-500">${order.numItems} barang • ${order.department}</p>
+                    </div>
+                    <span class="order-badge px-2 py-1 rounded-full text-xs">${order.status}</span>
+                `;
+                selectedDayOrdersContainer.appendChild(orderDiv);
+            });
+            todayOrdersElement.textContent = ordersForDay.length;
+        }
+    } catch (error) {
+        console.error("Error fetching orders:", error);
+        selectedDayOrdersContainer.innerHTML = `<p class="text-sm text-red-500 text-center">Gagal memuat pemesanan untuk tanggal ini.</p>`;
+    }
+}
 
         // --- Fungsi Notifikasi ---
         function generateNotifications() {
