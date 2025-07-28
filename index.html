@@ -348,451 +348,523 @@
             </div>
         </main>
     </div>
+<script>
+    // Firebase configuration
+    // GANTI DENGAN KONFIGURASI PROYEK FIREBASE ANDA
+    const firebaseConfig = {
+        apiKey: "AIzaSyCZyx64uxbS12698ENLJMCAmrJmq5HIw8w", // Ganti dengan API Key Anda
+        authDomain: "inventoryefk.firebaseapp.com", // Ganti dengan Auth Domain Anda
+        projectId: "inventoryefk", // Ganti dengan Project ID Anda
+        storageBucket: "inventoryefk.firebasestorage.app", // Ganti dengan Storage Bucket Anda
+        messagingSenderId: "734937154821", // Ganti dengan Messaging Sender ID Anda
+        appId: "1:734937154821:web:63c0159cc62918a33f236c" // Ganti dengan App ID Anda
+    };
 
-    <script>
-        // Firebase configuration
-        // GANTI DENGAN KONFIGURASI PROYEK FIREBASE ANDA
-        const firebaseConfig = {
-                  apiKey: "AIzaSyCZyx64uxbS12698ENLJMCAmrJmq5HIw8w",
-                  authDomain: "inventoryefk.firebaseapp.com",
-                  projectId: "inventoryefk",
-                  storageBucket: "inventoryefk.firebasestorage.app",
-                  messagingSenderId: "734937154821",
-                  appId: "1:734937154821:web:63c0159cc62918a33f236c"
-        };
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    // const auth = firebase.auth(); // Tidak digunakan untuk peran pengguna saat ini
 
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth(); // Jika Anda berencana menggunakan autentikasi
+    // Referensi DOM Elements
+    const itemsTableBody = document.getElementById('itemsTableBody');
+    const lowStockCardsContainer = document.getElementById('lowStockCards');
+    const totalItemsElement = document.getElementById('totalItems');
+    const lowStockItemsElement = document.getElementById('lowStockItems');
+    const todayOrdersElement = document.getElementById('todayOrders');
+    const outOfStockItemsElement = document.getElementById('outOfStockItems');
+    const addButton = document.getElementById('addButton');
+    const searchInput = document.getElementById('searchItem');
+    const selectedDayOrdersContainer = document.getElementById('selectedDayOrders');
+    const addOrderButton = document.getElementById('addOrderButton');
+    const notificationButton = document.getElementById('notificationButton');
+    const notificationBadge = document.getElementById('notificationBadge');
+    const notificationPanel = document.getElementById('notificationPanel');
+    const notificationContent = document.getElementById('notificationContent');
+    const markAllReadButton = document.getElementById('markAllRead');
 
-        // Referensi DOM Elements
-        const itemsTableBody = document.getElementById('itemsTableBody');
-        const lowStockCardsContainer = document.getElementById('lowStockCards');
-        const totalItemsElement = document.getElementById('totalItems');
-        const lowStockItemsElement = document.getElementById('lowStockItems');
-        const todayOrdersElement = document.getElementById('todayOrders');
-        const outOfStockItemsElement = document.getElementById('outOfStockItems');
-        const addButton = document.getElementById('addButton');
-        const searchInput = document.getElementById('searchItem');
-        const selectedDayOrdersContainer = document.getElementById('selectedDayOrders');
-        const addOrderButton = document.getElementById('addOrderButton');
-        const notificationButton = document.getElementById('notificationButton'); // <-- Notifikasi
-        const notificationBadge = document.getElementById('notificationBadge');   // <-- Notifikasi
-        const notificationPanel = document.getElementById('notificationPanel');   // <-- Notifikasi
-        const notificationContent = document.getElementById('notificationContent'); // <-- Notifikasi
-        const markAllReadButton = document.getElementById('markAllRead'); // <-- Notifikasi
+    // Variabel untuk Pagination
+    let currentPage = 1;
+    const itemsPerPage = 6; // Jumlah item per halaman
+    let allItems = []; // Menyimpan semua item dari Firestore
+    let filteredItems = []; // Menyimpan item setelah filter/pencarian
+    let notifications = []; // Menyimpan notifikasi
 
+    // Variabel Kalender
+    let currentCalendarDate = new Date();
+    // ordersData tidak lagi diperlukan sebagai objek statis, akan diambil dari Firestore
 
-        // Variabel untuk Pagination
-        let currentPage = 1;
-        const itemsPerPage = 6; // Jumlah item per halaman
-        let allItems = []; // Menyimpan semua item dari Firestore
-        let filteredItems = []; // Menyimpan item setelah filter/pencarian
-        let notifications = []; // Menyimpan notifikasi
+    // --- Fungsi Utilitas ---
+    function formatDate(date) {
+        if (!date) return '-';
+        // Firebase Timestamp to Date object
+        const d = date.toDate ? date.toDate() : new Date(date);
+        return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
 
-        // --- Fungsi Utilitas ---
-        function formatDate(date) {
-            if (!date) return '-';
-            // Firebase Timestamp to Date object
-            const d = date.toDate ? date.toDate() : new Date(date);
-            return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    function getStockStatus(stock, maxStock) {
+        const percentage = (stock / maxStock) * 100;
+        if (percentage <= 15) return 'low-stock';
+        if (percentage <= 50) return 'medium-stock';
+        return 'high-stock';
+    }
+
+    function getStockBadgeText(stock, maxStock) {
+        const percentage = (stock / maxStock) * 100;
+        if (stock === 0) return 'Habis';
+        if (percentage <= 15) return 'Stok Rendah';
+        if (percentage <= 50) return 'Stok Sedang';
+        return 'Stok Cukup';
+    }
+
+    function getStatusColorClass(status) {
+        if (status === 'Baru') return 'border-blue-500';
+        if (status === 'Diproses') return 'border-yellow-500';
+        if (status === 'Selesai') return 'border-green-500';
+        return 'border-gray-500'; // Default
+    }
+
+    function getStockBadgeColor(stock, maxStock) {
+        const percentage = (stock / maxStock) * 100;
+        if (stock === 0) return 'text-yellow-600 bg-yellow-100';
+        if (percentage <= 15) return 'text-red-600 bg-red-100';
+        if (percentage <= 50) return 'text-blue-600 bg-blue-100';
+        return 'text-green-600 bg-green-100';
+    }
+
+    // --- Fungsi CRUD Firebase (Items) ---
+
+    async function addItem() {
+        const itemName = prompt("Masukkan nama barang:");
+        if (!itemName) {
+            alert("Nama barang tidak boleh kosong.");
+            return;
+        }
+        const itemCategory = prompt("Masukkan kategori barang (misal: Alat Tulis, Kertas, Perlengkapan Kantor):", "Alat Tulis");
+        const itemStock = parseInt(prompt("Masukkan jumlah stok awal:", "10"));
+        const itemMaxStock = parseInt(prompt("Masukkan kapasitas stok maksimal:", "50"));
+
+        if (isNaN(itemStock) || isNaN(itemMaxStock) || itemStock < 0 || itemMaxStock <= 0 || itemStock > itemMaxStock) {
+            alert("Input stok tidak valid. Pastikan angka positif dan stok <= max stok.");
+            return;
         }
 
-        function getStockStatus(stock, maxStock) {
-            const percentage = (stock / maxStock) * 100;
-            if (percentage <= 15) return 'low-stock';
-            if (percentage <= 50) return 'medium-stock';
-            return 'high-stock';
+        try {
+            const newItem = {
+                name: itemName,
+                category: itemCategory || "Umum",
+                stock: itemStock,
+                maxStock: itemMaxStock,
+                lastPurchased: firebase.firestore.Timestamp.now()
+            };
+            await db.collection("office_supplies").add(newItem);
+            alert("Item berhasil ditambahkan!");
+            loadItems();
+        } catch (error) {
+            console.error("Error adding item:", error);
+            alert("Gagal menambahkan item: " + error.message);
+        }
+    }
+
+    async function loadItems() {
+        itemsTableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">Memuat data...</td></tr>`;
+        lowStockCardsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center col-span-full">Memuat data...</p>`;
+
+        try {
+            const snapshot = await db.collection("office_supplies").orderBy("name").get();
+            allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            filterAndDisplayItems();
+            updateSummaryCards();
+            loadLowStockItems();
+            generateNotifications();
+        } catch (error) {
+            console.error("Error loading items:", error);
+            alert("Gagal memuat item: " + error.message);
+            itemsTableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-red-500">Gagal memuat data. Cek koneksi atau konfigurasi Firebase.</td></tr>`;
+            lowStockCardsContainer.innerHTML = `<p class="text-sm text-red-500 text-center col-span-full">Gagal memuat data stok rendah.</p>`;
+        }
+    }
+
+    async function editItem(id) {
+        const itemToEdit = allItems.find(item => item.id === id);
+        if (!itemToEdit) {
+            alert("Item tidak ditemukan!");
+            return;
         }
 
-        function getStockBadgeText(stock, maxStock) {
-            const percentage = (stock / maxStock) * 100;
-            if (stock === 0) return 'Habis';
-            if (percentage <= 15) return 'Stok Rendah';
-            if (percentage <= 50) return 'Stok Sedang';
-            return 'Stok Cukup';
+        const newName = prompt("Masukkan nama baru untuk barang:", itemToEdit.name);
+        if (newName === null || newName.trim() === "") return;
+
+        const newCategory = prompt("Masukkan kategori baru:", itemToEdit.category);
+        if (newCategory === null || newCategory.trim() === "") return;
+
+        const newStockStr = prompt("Masukkan stok baru:", itemToEdit.stock);
+        const newStock = parseInt(newStockStr);
+        if (newStockStr === null || isNaN(newStock) || newStock < 0) {
+            alert("Input stok tidak valid.");
+            return;
         }
 
-        function getStatusColorClass(status) {
-            if (status === 'Baru') return 'border-blue-500';
-            if (status === 'Diproses') return 'border-yellow-500';
-            return 'border-green-500';
+        const newMaxStockStr = prompt("Masukkan stok maksimal baru:", itemToEdit.maxStock);
+        const newMaxStock = parseInt(newMaxStockStr);
+        if (newMaxStockStr === null || isNaN(newMaxStock) || newMaxStock <= 0 || newStock > newMaxStock) {
+            alert("Input stok maksimal tidak valid atau stok melebihi maksimal.");
+            return;
         }
-
-        function getStockBadgeColor(stock, maxStock) {
-            const percentage = (stock / maxStock) * 100;
-            if (stock === 0) return 'text-yellow-600 bg-yellow-100';
-            if (percentage <= 15) return 'text-red-600 bg-red-100';
-            if (percentage <= 50) return 'text-blue-600 bg-blue-100';
-            return 'text-green-600 bg-green-100';
+        
+        try {
+            await db.collection("office_supplies").doc(id).update({
+                name: newName,
+                stock: newStock,
+                maxStock: newMaxStock,
+                category: newCategory,
+                lastPurchased: firebase.firestore.Timestamp.now()
+            });
+            alert("Item berhasil diperbarui!");
+            loadItems();
+        } catch (error) {
+            console.error("Error updating item:", error);
+            alert("Gagal memperbarui item: " + error.message);
         }
+    }
 
-        // --- Fungsi CRUD Firebase ---
-
-        // CREATE: Menambahkan item baru
-        async function addItem() {
-            const itemName = prompt("Masukkan nama barang:");
-            if (!itemName) {
-                alert("Nama barang tidak boleh kosong.");
-                return;
-            }
-            const itemCategory = prompt("Masukkan kategori barang (misal: Alat Tulis, Kertas, Perlengkapan Kantor):", "Alat Tulis");
-            const itemStock = parseInt(prompt("Masukkan jumlah stok awal:", "10"));
-            const itemMaxStock = parseInt(prompt("Masukkan kapasitas stok maksimal:", "50"));
-
-            if (isNaN(itemStock) || isNaN(itemMaxStock) || itemStock < 0 || itemMaxStock <= 0 || itemStock > itemMaxStock) {
-                alert("Input stok tidak valid. Pastikan angka positif dan stok <= max stok.");
-                return;
-            }
-
+    async function deleteItem(id) {
+        if (confirm("Apakah Anda yakin ingin menghapus item ini?")) {
             try {
-                const newItem = {
-                    name: itemName,
-                    category: itemCategory || "Umum",
-                    stock: itemStock,
-                    maxStock: itemMaxStock,
-                    lastPurchased: firebase.firestore.Timestamp.now()
-                };
-                await db.collection("office_supplies").add(newItem);
-                alert("Item berhasil ditambahkan!");
-                loadItems(); // Muat ulang daftar setelah penambahan
+                await db.collection("office_supplies").doc(id).delete();
+                alert("Item berhasil dihapus!");
+                loadItems();
             } catch (error) {
-                console.error("Error adding item:", error);
-                alert("Gagal menambahkan item: " + error.message);
+                console.error("Error deleting item:", error);
+                alert("Gagal menghapus item: " + error.message);
             }
         }
+    }
 
-        // READ: Memuat semua item dari Firestore
-        async function loadItems() {
-            itemsTableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">Memuat data...</td></tr>`;
-            lowStockCardsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center col-span-full">Memuat data...</p>`;
+    // --- Fungsi Tampilan (Items) ---
 
-            try {
-                const snapshot = await db.collection("office_supplies").orderBy("name").get();
-                allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                filterAndDisplayItems(); // Tampilkan item setelah dimuat
-                updateSummaryCards(); // Perbarui kartu ringkasan
-                loadLowStockItems(); // Muat item stok rendah
-                generateNotifications(); // Generate notifikasi berdasarkan data baru
-            } catch (error) {
-                console.error("Error loading items:", error);
-                alert("Gagal memuat item: " + error.message);
-                itemsTableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-red-500">Gagal memuat data. Cek koneksi atau konfigurasi Firebase.</td></tr>`;
-                lowStockCardsContainer.innerHTML = `<p class="text-sm text-red-500 text-center col-span-full">Gagal memuat data stok rendah.</p>`;
-            }
+    function displayItems(items) {
+        itemsTableBody.innerHTML = '';
+        if (items.length === 0) {
+            itemsTableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">Tidak ada barang ditemukan.</td></tr>`;
+            updatePagination(0);
+            return;
         }
 
-        // UPDATE: Mengedit item
-        async function editItem(id) {
-            const itemToEdit = allItems.find(item => item.id === id);
-            if (!itemToEdit) {
-                alert("Item tidak ditemukan!");
-                return;
-            }
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const itemsToDisplay = items.slice(startIndex, endIndex);
 
-            const newName = prompt("Masukkan nama baru untuk barang:", itemToEdit.name);
-            if (newName === null || newName.trim() === "") return; // User cancelled or empty input
+        itemsToDisplay.forEach(item => {
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-gray-50';
+            const stockPercentage = (item.stock / item.maxStock) * 100;
+            const stockColor = stockPercentage <= 15 ? 'red' : (stockPercentage <= 50 ? 'yellow' : 'green');
 
-            const newCategory = prompt("Masukkan kategori baru:", itemToEdit.category);
-            if (newCategory === null || newCategory.trim() === "") return;
+            // Untuk saat ini, selalu tampilkan tombol edit/hapus (seperti admin)
+            const actionButtonsHtml = `
+                <button class="edit-btn text-indigo-600 hover:text-indigo-900 mr-3" data-id="${item.id}">Edit</button>
+                <button class="delete-btn text-red-600 hover:text-red-900" data-id="${item.id}">Hapus</button>
+            `;
 
-            const newStockStr = prompt("Masukkan stok baru:", itemToEdit.stock);
-            const newStock = parseInt(newStockStr);
-            if (newStockStr === null || isNaN(newStock) || newStock < 0) {
-                alert("Input stok tidak valid.");
-                return;
-            }
-
-            const newMaxStockStr = prompt("Masukkan stok maksimal baru:", itemToEdit.maxStock);
-            const newMaxStock = parseInt(newMaxStockStr);
-            if (newMaxStockStr === null || isNaN(newMaxStock) || newMaxStock <= 0 || newStock > newMaxStock) {
-                alert("Input stok maksimal tidak valid atau stok melebihi maksimal.");
-                return;
-            }
-            
-            try {
-                await db.collection("office_supplies").doc(id).update({
-                    name: newName,
-                    stock: newStock,
-                    maxStock: newMaxStock,
-                    category: newCategory,
-                    lastPurchased: firebase.firestore.Timestamp.now() // Update tanggal terakhir dibeli jika edited
-                });
-                alert("Item berhasil diperbarui!");
-                loadItems(); // Muat ulang daftar setelah pembaruan
-            } catch (error) {
-                console.error("Error updating item:", error);
-                alert("Gagal memperbarui item: " + error.message);
-            }
-        }
-
-        // DELETE: Menghapus item
-        async function deleteItem(id) {
-            if (confirm("Apakah Anda yakin ingin menghapus item ini?")) {
-                try {
-                    await db.collection("office_supplies").doc(id).delete();
-                    alert("Item berhasil dihapus!");
-                    loadItems(); // Muat ulang daftar setelah penghapusan
-                } catch (error) {
-                    console.error("Error deleting item:", error);
-                    alert("Gagal menghapus item: " + error.message);
-                }
-            }
-        }
-
-        // --- Fungsi Tampilan ---
-
-        // Menampilkan item ke tabel
-        function displayItems(items) {
-            itemsTableBody.innerHTML = ''; // Kosongkan tabel
-            if (items.length === 0) {
-                itemsTableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">Tidak ada barang ditemukan.</td></tr>`;
-                updatePagination(0);
-                return;
-            }
-
-            const startIndex = (currentPage - 1) * itemsPerPage;
-            const endIndex = startIndex + itemsPerPage;
-            const itemsToDisplay = items.slice(startIndex, endIndex);
-
-            itemsToDisplay.forEach(item => {
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-gray-50';
-                const stockPercentage = (item.stock / item.maxStock) * 100;
-                const stockColor = stockPercentage <= 15 ? 'red' : (stockPercentage <= 50 ? 'yellow' : 'green');
-
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-box text-indigo-600"></i> <!-- Generic icon, could be dynamic -->
-                            </div>
-                            <div class="ml-4">
-                                <div class="text-sm font-medium text-gray-900">${item.name}</div>
-                                <!-- ID hidden for admin view -->
-                            </div>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm text-gray-900">${item.category}</div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center">
-                            <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                                <div class="bg-${stockColor}-500 h-2 rounded-full" style="width: ${stockPercentage}%"></div>
-                            </div>
-                            <span class="text-sm font-medium text-gray-900">${item.stock}/${item.maxStock}</span>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${formatDate(item.lastPurchased)}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button class="edit-btn text-indigo-600 hover:text-indigo-900 mr-3" data-id="${item.id}">Edit</button>
-                        <button class="delete-btn text-red-600 hover:text-red-900" data-id="${item.id}">Hapus</button>
-                    </td>
-                `;
-                itemsTableBody.appendChild(row);
-            });
-
-            // Tambahkan event listener untuk tombol edit dan hapus
-            document.querySelectorAll('.edit-btn').forEach(button => {
-                button.onclick = () => editItem(button.dataset.id);
-            });
-            document.querySelectorAll('.delete-btn').forEach(button => {
-                button.onclick = () => deleteItem(button.dataset.id);
-            });
-
-            updatePagination(items.length);
-        }
-
-        // Memfilter dan menampilkan item berdasarkan pencarian
-        function filterAndDisplayItems() {
-            const searchTerm = searchInput.value.toLowerCase();
-            filteredItems = allItems.filter(item => 
-                item.name.toLowerCase().includes(searchTerm) ||
-                item.category.toLowerCase().includes(searchTerm) ||
-                item.id.toLowerCase().includes(searchTerm)
-            );
-            currentPage = 1; // Reset ke halaman pertama setelah filter
-            displayItems(filteredItems);
-        }
-
-        // Memperbarui kartu ringkasan
-        function updateSummaryCards() {
-            totalItemsElement.textContent = allItems.length;
-            
-            let lowStockCount = 0;
-            let outOfStockCount = 0;
-            allItems.forEach(item => {
-                if (item.stock === 0) {
-                    outOfStockCount++;
-                }
-                if (item.stock > 0 && (item.stock / item.maxStock) * 100 <= 15) {
-                    lowStockCount++;
-                }
-            });
-            lowStockItemsElement.textContent = lowStockCount;
-            outOfStockItemsElement.textContent = outOfStockCount;
-
-            // todayOrdersElement akan diperbarui oleh fungsi kalender
-        }
-
-        // Memuat dan menampilkan item stok rendah
-        function loadLowStockItems() {
-            lowStockCardsContainer.innerHTML = ''; // Kosongkan container
-            const lowStockItems = allItems.filter(item => (item.stock / item.maxStock) * 100 <= 50); // Ambil stok rendah dan sedang
-
-            if (lowStockItems.length === 0) {
-                lowStockCardsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center col-span-full">Tidak ada barang dengan stok rendah.</p>`;
-                return;
-            }
-
-            lowStockItems.forEach(item => {
-                const card = document.createElement('div');
-                const stockStatusClass = getStockStatus(item.stock, item.maxStock);
-                const badgeText = getStockBadgeText(item.stock, item.maxStock);
-                const badgeColorClass = getStockBadgeColor(item.stock, item.maxStock);
-                const stockColorBase = stockStatusClass.split('-')[0]; // e.g., 'low' -> 'red', 'medium' -> 'yellow'
-
-                card.className = `stock-card ${stockStatusClass} bg-white rounded-lg shadow-sm p-4`;
-                card.innerHTML = `
-                    <div class="flex items-start">
-                        <div class="flex-shrink-0 h-12 w-12 bg-${stockColorBase}-100 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-box text-${stockColorBase}-600"></i> <!-- Icon bisa disesuaikan per kategori -->
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-box text-indigo-600"></i>
                         </div>
                         <div class="ml-4">
-                            <h3 class="text-sm font-medium text-gray-900">${item.name}</h3>
-                            <!-- Hidden ID -->
-                            <div class="mt-2">
-                                <span class="text-xs font-semibold inline-block py-1 px-2 rounded-full ${badgeColorClass}">
-                                    ${badgeText}
-                                </span>
-                            </div>
+                            <div class="text-sm font-medium text-gray-900">${item.name}</div>
                         </div>
                     </div>
-                    <div class="mt-4">
-                        <div class="flex justify-between text-sm text-gray-500">
-                            <span>Sisa:</span>
-                            <span class="font-semibold text-${stockColorBase}-600">${item.stock}/${item.maxStock}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">${item.category}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                            <div class="bg-${stockColor}-500 h-2 rounded-full" style="width: ${stockPercentage}%"></div>
                         </div>
-                        <div class="mt-2 bg-gray-200 rounded-full h-2">
-                            <div class="bg-${stockColorBase}-500 h-2 rounded-full" style="width: ${(item.stock / item.maxStock) * 100}%"></div>
+                        <span class="text-sm font-medium text-gray-900">${item.stock}/${item.maxStock}</span>
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ${formatDate(item.lastPurchased)}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    ${actionButtonsHtml}
+                </td>
+            `;
+            itemsTableBody.appendChild(row);
+        });
+
+        document.querySelectorAll('.edit-btn').forEach(button => {
+            button.onclick = () => editItem(button.dataset.id);
+        });
+        document.querySelectorAll('.delete-btn').forEach(button => {
+            button.onclick = () => deleteItem(button.dataset.id);
+        });
+
+        updatePagination(items.length);
+    }
+
+    function filterAndDisplayItems() {
+        const searchTerm = searchInput.value.toLowerCase();
+        filteredItems = allItems.filter(item => 
+            item.name.toLowerCase().includes(searchTerm) ||
+            item.category.toLowerCase().includes(searchTerm) ||
+            item.id.toLowerCase().includes(searchTerm)
+        );
+        currentPage = 1;
+        displayItems(filteredItems);
+    }
+
+    function updateSummaryCards() {
+        totalItemsElement.textContent = allItems.length;
+        
+        let lowStockCount = 0;
+        let outOfStockCount = 0;
+        allItems.forEach(item => {
+            if (item.stock === 0) {
+                outOfStockCount++;
+            }
+            if (item.stock > 0 && (item.stock / item.maxStock) * 100 <= 15) {
+                lowStockCount++;
+            }
+        });
+        lowStockItemsElement.textContent = lowStockCount;
+        outOfStockItemsElement.textContent = outOfStockCount;
+        // todayOrdersElement akan diperbarui oleh fungsi kalender
+    }
+
+    function loadLowStockItems() {
+        lowStockCardsContainer.innerHTML = '';
+        const lowStockItems = allItems.filter(item => (item.stock / item.maxStock) * 100 <= 50);
+
+        if (lowStockItems.length === 0) {
+            lowStockCardsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center col-span-full">Tidak ada barang dengan stok rendah.</p>`;
+            return;
+        }
+
+        lowStockItems.forEach(item => {
+            const card = document.createElement('div');
+            const stockStatusClass = getStockStatus(item.stock, item.maxStock);
+            const badgeText = getStockBadgeText(item.stock, item.maxStock);
+            const badgeColorClass = getStockBadgeColor(item.stock, item.maxStock);
+            const stockColorBase = stockStatusClass.split('-')[0];
+
+            card.className = `stock-card ${stockStatusClass} bg-white rounded-lg shadow-sm p-4`;
+            card.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 h-12 w-12 bg-${stockColorBase}-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-box text-${stockColorBase}-600"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-sm font-medium text-gray-900">${item.name}</h3>
+                        <div class="mt-2">
+                            <span class="text-xs font-semibold inline-block py-1 px-2 rounded-full ${badgeColorClass}">
+                                ${badgeText}
+                            </span>
                         </div>
                     </div>
-                    <!-- Removed order button for admin view -->
-                `;
-                lowStockCardsContainer.appendChild(card);
+                </div>
+                <div class="mt-4">
+                    <div class="flex justify-between text-sm text-gray-500">
+                        <span>Sisa:</span>
+                        <span class="font-semibold text-${stockColorBase}-600">${item.stock}/${item.maxStock}</span>
+                    </div>
+                    <div class="mt-2 bg-gray-200 rounded-full h-2">
+                        <div class="bg-${stockColorBase}-500 h-2 rounded-full" style="width: ${(item.stock / item.maxStock) * 100}%"></div>
+                    </div>
+                </div>
+            `;
+            lowStockCardsContainer.appendChild(card);
+        });
+    }
+
+    // --- Fungsi Pagination ---
+    function updatePagination(totalItemsCount) {
+        const totalPages = Math.ceil(totalItemsCount / itemsPerPage);
+        const paginationNumbers = document.getElementById('paginationNumbers');
+        paginationNumbers.innerHTML = '';
+
+        document.getElementById('displayRangeStart').textContent = totalItemsCount > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
+        document.getElementById('displayRangeEnd').textContent = Math.min(currentPage * itemsPerPage, totalItemsCount);
+        document.getElementById('totalItemsPagination').textContent = totalItemsCount;
+
+        for (let i = 1; i <= totalPages; i++) {
+            const button = document.createElement('button');
+            button.className = `bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium`;
+            if (i === currentPage) {
+                button.classList.add('z-10', 'bg-indigo-50', 'border-indigo-500', 'text-indigo-600');
+            }
+            button.textContent = i;
+            button.addEventListener('click', () => {
+                currentPage = i;
+                displayItems(filteredItems);
             });
+            paginationNumbers.appendChild(button);
         }
 
-        // --- Fungsi Pagination ---
-        function updatePagination(totalItemsCount) {
-            const totalPages = Math.ceil(totalItemsCount / itemsPerPage);
-            const paginationNumbers = document.getElementById('paginationNumbers');
-            paginationNumbers.innerHTML = '';
+        document.getElementById('prevPage').disabled = currentPage === 1;
+        document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+    }
 
-            document.getElementById('displayRangeStart').textContent = totalItemsCount > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
-            document.getElementById('displayRangeEnd').textContent = Math.min(currentPage * itemsPerPage, totalItemsCount);
-            document.getElementById('totalItemsPagination').textContent = totalItemsCount;
+    // --- Fungsi Kalender & Pemesanan ---
 
-            for (let i = 1; i <= totalPages; i++) {
-                const button = document.createElement('button');
-                button.className = `bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium`;
-                if (i === currentPage) {
-                    button.classList.add('z-10', 'bg-indigo-50', 'border-indigo-500', 'text-indigo-600');
+    // Fungsi untuk memperbarui status pesanan di Firestore
+    async function updateOrderStatus(orderDocId, newStatus) {
+        try {
+            await db.collection("orders").doc(orderDocId).update({
+                status: newStatus
+            });
+            alert("Status pesanan berhasil diperbarui!");
+            // Setelah update, muat ulang pesanan untuk hari yang sedang dipilih
+            const selectedDayElement = document.querySelector('.calendar-day.selected');
+            if (selectedDayElement) {
+                const selectedDay = parseInt(selectedDayElement.textContent.trim());
+                const selectedDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), selectedDay);
+                updateSelectedDayOrders(selectedDate);
+            }
+        } catch (error) {
+            console.error("Error updating order status:", error);
+            alert("Gagal memperbarui status pesanan: " + error.message);
+        }
+    }
+
+    async function addOrder() {
+        const orderId = prompt("Masukkan ID Pemesanan (misal: ATK-2023-XXX):");
+        if (!orderId) return;
+
+        const numItems = parseInt(prompt("Jumlah barang yang dipesan:", "1"));
+        if (isNaN(numItems) || numItems <= 0) {
+            alert("Jumlah barang tidak valid.");
+            return;
+        }
+
+        const department = prompt("Departemen pemesan:", "Umum");
+        const status = "Baru"; // Status awal selalu 'Baru'
+
+        const selectedDayElement = document.querySelector('.calendar-day.selected');
+        if (!selectedDayElement) {
+            alert("Pilih tanggal di kalender terlebih dahulu.");
+            return;
+        }
+        const selectedDay = parseInt(selectedDayElement.textContent.trim());
+        const selectedDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), selectedDay);
+        
+        try {
+            await db.collection("orders").add({
+                orderId: orderId,
+                orderDate: firebase.firestore.Timestamp.fromDate(selectedDate), // Simpan sebagai Timestamp
+                numItems: numItems,
+                department: department,
+                status: status,
+                createdAt: firebase.firestore.Timestamp.now()
+            });
+            alert("Pemesanan berhasil ditambahkan!");
+            renderCalendar(); // Render ulang kalender untuk menampilkan tanda pesanan
+            updateSelectedDayOrders(selectedDate); // Perbarui daftar pesanan untuk hari yang dipilih
+        } catch (error) {
+            console.error("Error adding order:", error);
+            alert("Gagal menambahkan pemesanan: " + error.message);
+        }
+    }
+
+    async function loadOrdersForCalendarMarkers() {
+        // Fungsi ini akan mengambil semua pesanan untuk bulan yang sedang ditampilkan
+        // untuk menandai hari-hari yang memiliki pesanan di kalender.
+        const startOfMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1);
+        const endOfMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 0, 23, 59, 59);
+
+        try {
+            const snapshot = await db.collection("orders")
+                                     .where("orderDate", ">=", firebase.firestore.Timestamp.fromDate(startOfMonth))
+                                     .where("orderDate", "<=", firebase.firestore.Timestamp.fromDate(endOfMonth))
+                                     .get();
+            const ordersInMonth = {};
+            snapshot.docs.forEach(doc => {
+                const orderDate = doc.data().orderDate.toDate(); // Konversi Timestamp ke Date
+                const dateString = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}-${String(orderDate.getDate()).padStart(2, '0')}`;
+                if (!ordersInMonth[dateString]) {
+                    ordersInMonth[dateString] = [];
                 }
-                button.textContent = i;
-                button.addEventListener('click', () => {
-                    currentPage = i;
-                    displayItems(filteredItems);
-                });
-                paginationNumbers.appendChild(button);
+                ordersInMonth[dateString].push({ docId: doc.id, ...doc.data() });
+            });
+            return ordersInMonth;
+        } catch (error) {
+            console.error("Error loading orders for calendar markers:", error);
+            return {};
+        }
+    }
+
+    async function renderCalendar() {
+        const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        const currentMonthYearElement = document.getElementById('currentMonthYear');
+        const calendarGrid = document.getElementById('calendarGrid');
+        
+        currentMonthYearElement.textContent = `${monthNames[currentCalendarDate.getMonth()]} ${currentCalendarDate.getFullYear()}`;
+        calendarGrid.innerHTML = '';
+
+        const firstDayOfMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1);
+        const lastDayOfMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 0);
+        const daysInMonth = lastDayOfMonth.getDate();
+        const startDayOfWeek = firstDayOfMonth.getDay(); // 0 for Sunday, 1 for Monday, etc.
+
+        const ordersDataForMonth = await loadOrdersForCalendarMarkers(); // Ambil data pesanan untuk bulan ini
+
+        // Add empty days for the beginning of the month
+        for (let i = 0; i < startDayOfWeek; i++) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'py-2';
+            calendarGrid.appendChild(emptyDiv);
+        }
+
+        // Add days of the month
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayDiv = document.createElement('div');
+            dayDiv.className = 'py-2 calendar-day rounded-md';
+            dayDiv.textContent = day;
+
+            const dateString = `${currentCalendarDate.getFullYear()}-${String(currentCalendarDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            if (ordersDataForMonth[dateString] && ordersDataForMonth[dateString].length > 0) {
+                dayDiv.classList.add('has-order');
             }
 
-            document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
-        }
-
-        // --- Fungsi Kalender ---
-        let currentCalendarDate = new Date();
-        let ordersData = {}; // Akan menyimpan data pemesanan dari Firestore
-
-        async function loadOrders() {
-            // Ini adalah placeholder. Dalam aplikasi nyata, Anda akan mengambil data pemesanan dari Firestore
-            // Contoh data statis untuk demo:
-            ordersData = {
-                "2023-07-05": [{ id: "ATK-2023-076", items: 6, dept: "Div. Keuangan", status: "Diproses" }],
-                "2023-07-11": [{ id: "ATK-2023-078", items: 2, dept: "Div. Pemasaran", status: "Baru" }],
-                "2023-07-13": [{ id: "ATK-2023-079", items: 4, dept: "Div. IT", status: "Selesai" }],
-                "2023-07-16": [ // Contoh data untuk hari ini
-                    { id: "ATK-2023-076", items: 6, dept: "Div. Keuangan", status: "Diproses" },
-                    { id: "ATK-2023-077", items: 3, dept: "Div. SDM", status: "Baru" }
-                ],
-                "2023-07-19": [{ id: "ATK-2023-080", items: 5, dept: "Div. Keuangan", status: "Baru" }],
-                "2023-07-25": [{ id: "ATK-2023-081", items: 1, dept: "Div. HRD", status: "Diproses" }]
-            };
-            renderCalendar();
-            updateSelectedDayOrders(new Date()); // Update orders for today initially
-        }
-
-        function renderCalendar() {
-            const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-            const currentMonthYearElement = document.getElementById('currentMonthYear');
-            const calendarGrid = document.getElementById('calendarGrid');
-            
-            currentMonthYearElement.textContent = `${monthNames[currentCalendarDate.getMonth()]} ${currentCalendarDate.getFullYear()}`;
-            calendarGrid.innerHTML = '';
-
-            const firstDayOfMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1);
-            const lastDayOfMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 0);
-            const daysInMonth = lastDayOfMonth.getDate();
-            const startDayOfWeek = firstDayOfMonth.getDay(); // 0 for Sunday, 1 for Monday, etc.
-
-            // Add empty days for the beginning of the month
-            for (let i = 0; i < startDayOfWeek; i++) {
-                const emptyDiv = document.createElement('div');
-                emptyDiv.className = 'py-2';
-                calendarGrid.appendChild(emptyDiv);
+            // Highlight today's date
+            const today = new Date();
+            if (day === today.getDate() && currentCalendarDate.getMonth() === today.getMonth() && currentCalendarDate.getFullYear() === today.getFullYear()) {
+                dayDiv.classList.add('selected');
             }
 
-            // Add days of the month
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dayDiv = document.createElement('div');
-                dayDiv.className = 'py-2 calendar-day rounded-md';
-                dayDiv.textContent = day;
-
-                const dateString = `${currentCalendarDate.getFullYear()}-${String(currentCalendarDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                if (ordersData[dateString] && ordersData[dateString].length > 0) {
-                    dayDiv.classList.add('has-order');
-                }
-
-                // Highlight today's date
-                const today = new Date();
-                if (day === today.getDate() && currentCalendarDate.getMonth() === today.getMonth() && currentCalendarDate.getFullYear() === today.getFullYear()) {
-                    dayDiv.classList.add('selected');
-                }
-
-                dayDiv.addEventListener('click', function() {
-                    document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
-                    this.classList.add('selected');
-                    const clickedDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), parseInt(this.textContent.trim()));
-                    updateSelectedDayOrders(clickedDate);
-                });
-                calendarGrid.appendChild(dayDiv);
-            }
+            dayDiv.addEventListener('click', function() {
+                document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
+                this.classList.add('selected');
+                const clickedDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), parseInt(this.textContent.trim()));
+                updateSelectedDayOrders(clickedDate);
+            });
+            calendarGrid.appendChild(dayDiv);
         }
+    }
 
-        function updateSelectedDayOrders(date) {
-            const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-            const selectedDayOrdersTitle = document.getElementById('selectedDayOrdersTitle');
-            selectedDayOrdersTitle.textContent = `Pemesanan untuk ${date.getDate()} ${monthNames[date.getMonth()]}`;
-            
-            selectedDayOrdersContainer.innerHTML = ''; // Clear previous orders
+    async function updateSelectedDayOrders(date) {
+        const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        const selectedDayOrdersTitle = document.getElementById('selectedDayOrdersTitle');
+        selectedDayOrdersTitle.textContent = `Pemesanan untuk ${date.getDate()} ${monthNames[date.getMonth()]}`;
+        
+        selectedDayOrdersContainer.innerHTML = ''; // Clear previous orders
 
-            const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-            const ordersForDay = ordersData[dateString] || [];
+        // Untuk mencari berdasarkan tanggal saja, Anda perlu membuat rentang waktu
+        // dari awal hari hingga akhir hari yang dipilih.
+        const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+        const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+
+        try {
+            const snapshot = await db.collection("orders")
+                                     .where("orderDate", ">=", firebase.firestore.Timestamp.fromDate(startOfDay))
+                                     .where("orderDate", "<=", firebase.firestore.Timestamp.fromDate(endOfDay))
+                                     .get();
+            const ordersForDay = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() })); // Ambil docId juga
 
             if (ordersForDay.length === 0) {
                 selectedDayOrdersContainer.innerHTML = `<p class="text-sm text-gray-500 text-center">Tidak ada pemesanan untuk tanggal ini.</p>`;
@@ -801,252 +873,170 @@
                 ordersForDay.forEach(order => {
                     const orderDiv = document.createElement('div');
                     orderDiv.className = 'flex items-start p-3 bg-gray-50 rounded-lg';
-                    orderDiv.innerHTML = `
-                        <div class="mr-3 mt-1">
-                            <i class="fas fa-file-alt text-indigo-500"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-sm font-medium">Pesanan #${order.id}</p>
-                            <p class="text-xs text-gray-500">${order.items} barang • ${order.dept}</p>
-                        </div>
-                        <select class="order-status-select px-2 py-1 rounded-full text-xs bg-white border ${getStatusColorClass(order.status)}">
+                    
+                    // Selalu tampilkan dropdown untuk mengubah status (seperti admin)
+                    const statusControlHtml = `
+                        <select class="order-status-select px-2 py-1 rounded-full text-xs bg-white border ${getStatusColorClass(order.status)}" data-doc-id="${order.docId}">
                             <option value="Baru" ${order.status === 'Baru' ? 'selected' : ''}>Baru</option>
                             <option value="Diproses" ${order.status === 'Diproses' ? 'selected' : ''}>Diproses</option>
                             <option value="Selesai" ${order.status === 'Selesai' ? 'selected' : ''}>Selesai</option>
                         </select>
                     `;
+
+                    orderDiv.innerHTML = `
+                        <div class="mr-3 mt-1">
+                            <i class="fas fa-file-alt text-indigo-500"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium">Pesanan #${order.orderId}</p>
+                            <p class="text-xs text-gray-500">${order.numItems} barang • ${order.department}</p>
+                        </div>
+                        ${statusControlHtml}
+                    `;
                     selectedDayOrdersContainer.appendChild(orderDiv);
                 });
+
+                // Tambahkan event listener untuk dropdown status
+                document.querySelectorAll('.order-status-select').forEach(selectElement => {
+                    selectElement.addEventListener('change', (event) => {
+                        const docId = event.target.dataset.docId;
+                        const newStatus = event.target.value;
+                        updateOrderStatus(docId, newStatus);
+                    });
+                });
+
                 todayOrdersElement.textContent = ordersForDay.length;
             }
+        } catch (error) {
+            console.error("Error fetching orders:", error);
+            selectedDayOrdersContainer.innerHTML = `<p class="text-sm text-red-500 text-center">Gagal memuat pemesanan untuk tanggal ini.</p>`;
         }
-
-        // Fungsi untuk menambahkan pemesanan baru (simulasi)
-async function addOrder() {
-    const orderId = prompt("Masukkan ID Pemesanan (misal: ATK-2023-XXX):");
-    if (!orderId) return;
-
-    const numItems = parseInt(prompt("Jumlah barang yang dipesan:", "1"));
-    if (isNaN(numItems) || numItems <= 0) {
-        alert("Jumlah barang tidak valid.");
-        return;
     }
 
-    const department = prompt("Departemen pemesan:", "Umum");
-    const status = "Baru"; // Visitor can only create new orders with status 'Baru'
+    // --- Fungsi Notifikasi ---
+    function generateNotifications() {
+        notifications = [];
+        const lowStockCount = parseInt(lowStockItemsElement.textContent);
+        const outOfStockCount = parseInt(outOfStockItemsElement.textContent);
 
-    const selectedDayElement = document.querySelector('.calendar-day.selected');
-    if (!selectedDayElement) {
-        alert("Pilih tanggal di kalender terlebih dahulu.");
-        return;
+        if (lowStockCount > 0) {
+            notifications.push({
+                type: 'warning',
+                message: `Ada ${lowStockCount} barang dengan stok rendah. Segera periksa!`,
+                read: false
+            });
+        }
+        if (outOfStockCount > 0) {
+            notifications.push({
+                type: 'danger',
+                message: `Ada ${outOfStockCount} barang yang habis. Perlu pemesanan baru!`,
+                read: false
+            });
+        }
+        updateNotificationDisplay();
     }
-    const selectedDay = parseInt(selectedDayElement.textContent.trim());
-    const selectedDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), selectedDay);
-    const dateString = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
 
-    // Tambahkan ke data ordersData (simulasi)
-    if (!ordersData[dateString]) {
-        ordersData[dateString] = [];
-    }
-    ordersData[dateString].push({
-        id: orderId,
-        items: numItems,
-        dept: department,
-        status: status
-    });
+    function updateNotificationDisplay() {
+        notificationContent.innerHTML = '';
+        let unreadCount = 0;
 
-    // Simpan pesanan ke Firestore
-    try {
-        await db.collection("orders").add({
-            orderId: orderId,
-            orderDate: firebase.firestore.Timestamp.fromDate(selectedDate),
-            numItems: numItems,
-            department: department,
-            status: status,
-            createdAt: firebase.firestore.Timestamp.now()
-        });
-        alert("Pemesanan berhasil ditambahkan ke Firestore!");
-        renderCalendar(); // Render ulang kalender untuk menampilkan tanda pesanan
-        updateSelectedDayOrders(selectedDate); // Perbarui daftar pesanan untuk hari yang dipilih
-    } catch (error) {
-        console.error("Error adding order:", error);
-        alert("Gagal menambahkan pemesanan: " + error.message);
-    }
-}
-async function updateSelectedDayOrders(date) {
-    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-    const selectedDayOrdersTitle = document.getElementById('selectedDayOrdersTitle');
-    selectedDayOrdersTitle.textContent = `Pemesanan untuk ${date.getDate()} ${monthNames[date.getMonth()]}`;
-    
-    selectedDayOrdersContainer.innerHTML = ''; // Clear previous orders
-
-    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    
-    // Ambil data pemesanan dari Firestore berdasarkan tanggal
-    try {
-        const snapshot = await db.collection("orders").where("orderDate", "==", firebase.firestore.Timestamp.fromDate(date)).get();
-        const ordersForDay = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        if (ordersForDay.length === 0) {
-            selectedDayOrdersContainer.innerHTML = `<p class="text-sm text-gray-500 text-center">Tidak ada pemesanan untuk tanggal ini.</p>`;
-            todayOrdersElement.textContent = '0';
+        if (notifications.length === 0) {
+            notificationContent.innerHTML = `<a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Tidak ada notifikasi baru.</a>`;
         } else {
-            ordersForDay.forEach(order => {
-                const orderDiv = document.createElement('div');
-                orderDiv.className = 'flex items-start p-3 bg-gray-50 rounded-lg';
-                orderDiv.innerHTML = `
-                    <div class="mr-3 mt-1">
-                        <i class="fas fa-file-alt text-indigo-500"></i>
-                    </div>
-                    <div class="flex-1">
-                        <p class="text-sm font-medium">Pesanan #${order.orderId}</p>
-                        <p class="text-xs text-gray-500">${order.numItems} barang • ${order.department}</p>
-                    </div>
-                    <span class="order-badge px-2 py-1 rounded-full text-xs">${order.status}</span>
-                `;
-                selectedDayOrdersContainer.appendChild(orderDiv);
+            notifications.forEach((notif, index) => {
+                if (!notif.read) {
+                    unreadCount++;
+                }
+                const notifItem = document.createElement('a');
+                notifItem.href = "#";
+                notifItem.className = `block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${notif.read ? 'opacity-70' : 'font-semibold'}`;
+                notifItem.textContent = notif.message;
+                notifItem.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    notifications[index].read = true;
+                    updateNotificationDisplay();
+                });
+                notificationContent.appendChild(notifItem);
             });
-            todayOrdersElement.textContent = ordersForDay.length;
         }
-    } catch (error) {
-        console.error("Error fetching orders:", error);
-        selectedDayOrdersContainer.innerHTML = `<p class="text-sm text-red-500 text-center">Gagal memuat pemesanan untuk tanggal ini.</p>`;
+
+        if (unreadCount > 0) {
+            notificationBadge.classList.remove('hidden');
+        } else {
+            notificationBadge.classList.add('hidden');
+        }
     }
-}
 
-        // --- Fungsi Notifikasi ---
-        function generateNotifications() {
-            notifications = []; // Reset notifikasi
-            const lowStockCount = parseInt(lowStockItemsElement.textContent);
-            const outOfStockCount = parseInt(outOfStockItemsElement.textContent);
+    function toggleNotificationPanel() {
+        notificationPanel.classList.toggle('show');
+    }
 
-            if (lowStockCount > 0) {
-                notifications.push({
-                    type: 'warning',
-                    message: `Ada ${lowStockCount} barang dengan stok rendah. Segera periksa!`,
-                    read: false
-                });
+    function markAllNotificationsAsRead() {
+        notifications.forEach(notif => notif.read = true);
+        updateNotificationDisplay();
+        notificationPanel.classList.remove('show');
+    }
+
+    // --- Event Listeners ---
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inisialisasi tampilan dashboard (seperti admin)
+        document.querySelector('header h1').textContent = 'Admin Dashboard - Inventory Alat Tulis Kantor';
+        document.getElementById('addButton').style.display = 'flex'; // Pastikan tombol tambah barang terlihat
+        document.querySelector('thead th:last-child').style.display = ''; // Pastikan kolom Aksi terlihat
+
+        loadItems(); // Muat item saat halaman dimuat
+        renderCalendar(); // Render kalender dan muat pesanan untuk hari ini
+
+        addButton.addEventListener('click', addItem);
+        searchInput.addEventListener('input', filterAndDisplayItems);
+        addOrderButton.addEventListener('click', addOrder);
+        
+        notificationButton.addEventListener('click', toggleNotificationPanel);
+        markAllReadButton.addEventListener('click', markAllNotificationsAsRead);
+        document.addEventListener('click', function(event) {
+            if (!notificationPanel.contains(event.target) && !notificationButton.contains(event.target)) {
+                notificationPanel.classList.remove('show');
             }
-            if (outOfStockCount > 0) {
-                notifications.push({
-                    type: 'danger',
-                    message: `Ada ${outOfStockCount} barang yang habis. Perlu pemesanan baru!`,
-                    read: false
-                });
+        });
+
+        document.getElementById('prevPage').addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                displayItems(filteredItems);
             }
-            // Tambahkan notifikasi lain jika diperlukan (misal: pesanan baru, dll.)
+        });
 
-            updateNotificationDisplay();
-        }
-
-        function updateNotificationDisplay() {
-            notificationContent.innerHTML = '';
-            let unreadCount = 0;
-
-            if (notifications.length === 0) {
-                notificationContent.innerHTML = `<a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Tidak ada notifikasi baru.</a>`;
-            } else {
-                notifications.forEach((notif, index) => {
-                    if (!notif.read) {
-                        unreadCount++;
-                    }
-                    const notifItem = document.createElement('a');
-                    notifItem.href = "#";
-                    notifItem.className = `block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${notif.read ? 'opacity-70' : 'font-semibold'}`;
-                    notifItem.textContent = notif.message;
-                    notifItem.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        notifications[index].read = true;
-                        updateNotificationDisplay();
-                        // Arahkan pengguna ke bagian yang relevan, misal:
-                        // if (notif.type === 'warning') { window.location.hash = 'lowStockCards'; }
-                    });
-                    notificationContent.appendChild(notifItem);
-                });
+        document.getElementById('nextPage').addEventListener('click', () => {
+            const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                displayItems(filteredItems);
             }
+        });
 
-            if (unreadCount > 0) {
-                notificationBadge.classList.remove('hidden');
-            } else {
-                notificationBadge.classList.add('hidden');
-            }
-        }
+        document.getElementById('prevMonth').addEventListener('click', () => {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+            renderCalendar();
+            updateSelectedDayOrders(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1));
+        });
 
-        function toggleNotificationPanel() {
-            notificationPanel.classList.toggle('show');
-            if (notificationPanel.classList.contains('show')) {
-                // Opsional: Tandai semua notifikasi sebagai sudah dibaca saat panel dibuka
-                // notifications.forEach(notif => notif.read = true);
-                // updateNotificationDisplay();
-            }
-        }
+        document.getElementById('nextMonth').addEventListener('click', () => {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+            renderCalendar();
+            updateSelectedDayOrders(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1));
+        });
 
-        function markAllNotificationsAsRead() {
-            notifications.forEach(notif => notif.read = true);
-            updateNotificationDisplay();
-            notificationPanel.classList.remove('show'); // Tutup panel setelah ditandai
-        }
-
-
-        // --- Event Listeners ---
-        document.addEventListener('DOMContentLoaded', function() {
-            loadItems(); // Muat item saat halaman dimuat
-            loadOrders(); // Muat data pemesanan untuk kalender
-
-            addButton.addEventListener('click', addItem);
-            searchInput.addEventListener('input', filterAndDisplayItems);
-            addOrderButton.addEventListener('click', addOrder);
+        const stockCards = document.querySelectorAll('.stock-card');
+        stockCards.forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transition = 'all 0.3s ease';
+            });
             
-            // Notifikasi Event Listeners
-            notificationButton.addEventListener('click', toggleNotificationPanel);
-            markAllReadButton.addEventListener('click', markAllNotificationsAsRead);
-            // Tutup panel notifikasi jika mengklik di luar
-            document.addEventListener('click', function(event) {
-                if (!notificationPanel.contains(event.target) && !notificationButton.contains(event.target)) {
-                    notificationPanel.classList.remove('show');
-                }
-            });
-
-
-            document.getElementById('prevPage').addEventListener('click', () => {
-                if (currentPage > 1) {
-                    currentPage--;
-                    displayItems(filteredItems);
-                }
-            });
-
-            document.getElementById('nextPage').addEventListener('click', () => {
-                const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-                if (currentPage < totalPages) {
-                    currentPage++;
-                    displayItems(filteredItems);
-                }
-            });
-
-            document.getElementById('prevMonth').addEventListener('click', () => {
-                currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
-                renderCalendar();
-                updateSelectedDayOrders(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1)); // Update orders for the first day of new month
-            });
-
-            document.getElementById('nextMonth').addEventListener('click', () => {
-                currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
-                renderCalendar();
-                updateSelectedDayOrders(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1)); // Update orders for the first day of new month
-            });
-
-            // Simulate loading animation for stock cards (from original code)
-            const stockCards = document.querySelectorAll('.stock-card');
-            stockCards.forEach(card => {
-                card.addEventListener('mouseenter', function() {
-                    this.style.transition = 'all 0.3s ease';
-                });
-                
-                card.addEventListener('mouseleave', function() {
-                    this.style.transition = 'all 0.3s ease';
-                });
+            card.addEventListener('mouseleave', function() {
+                this.style.transition = 'all 0.3s ease';
             });
         });
-    </script>
+    });
+</script>
 </body>
 </html>
