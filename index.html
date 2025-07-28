@@ -204,8 +204,6 @@
                     <div class="p-6">
                         <div class="flex justify-between items-center mb-6">
                             <h2 class="text-lg font-semibold text-gray-800">Kalender Pemesanan</h2>
-                            <button class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
-                                Lihat Semua
                             </button>
                         </div>
                         
@@ -381,9 +379,6 @@
     const notificationPanel = document.getElementById('notificationPanel');
     const notificationContent = document.getElementById('notificationContent');
     const markAllReadButton = document.getElementById('markAllRead');
-    const allOrdersModal = document.getElementById('allOrdersModal');
-     const closeAllOrdersModal = document.getElementById('closeAllOrdersModal');
-    const allOrdersContent = document.getElementById('allOrdersContent');
 
     // Variabel untuk Pagination
     let currentPage = 1;
@@ -435,55 +430,6 @@
     }
 
     // --- Fungsi CRUD Firebase (Items) ---
-// Fungsi untuk membuka modal semua pesanan
-async function openAllOrdersModal() {
-    allOrdersModal.classList.remove('hidden');
-    allOrdersContent.innerHTML = '<p class="text-center text-gray-500">Memuat semua pesanan...</p>';
-
-    try {
-        const snapshot = await db.collection("orders").orderBy("orderDate", "desc").get();
-        const allOrders = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
-
-        if (allOrders.length === 0) {
-            allOrdersContent.innerHTML = '<p class="text-center text-gray-500">Tidak ada pesanan ditemukan.</p>';
-        } else {
-            let ordersHtml = '<div class="space-y-3">';
-            allOrders.forEach(order => {
-                ordersHtml += `
-                    <div class="flex items-start p-3 bg-gray-50 rounded-lg">
-                        <div class="mr-3 mt-1">
-                            <i class="fas fa-file-alt text-indigo-500"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-sm font-medium">Pesanan #${order.orderId} - ${formatDate(order.orderDate)}</p>
-                            <p class="text-xs text-gray-500">${order.numItems} barang • ${order.department}</p>
-                        </div>
-                        <span class="order-badge px-2 py-1 rounded-full text-xs">${order.status}</span>
-                    </div>
-                `;
-            });
-            ordersHtml += '</div>';
-            allOrdersContent.innerHTML = ordersHtml;
-        }
-    } catch (error) {
-        console.error("Error loading all orders:", error);
-        allOrdersContent.innerHTML = '<p class="text-center text-red-500">Gagal memuat semua pesanan.</p>';
-    }
-}
-
-// ... (di bagian Event Listeners, di dalam document.addEventListener('DOMContentLoaded', function() { ... })) ...
-viewAllOrdersButton.addEventListener('click', openAllOrdersModal);
-
-closeAllOrdersModal.addEventListener('click', function() {
-    allOrdersModal.classList.add('hidden');
-});
-
-// Menutup modal jika mengklik di luar konten modal
-allOrdersModal.addEventListener('click', function(event) {
-    if (event.target === allOrdersModal) {
-        allOrdersModal.classList.add('hidden');
-    }
-});
 
     async function addItem() {
         const itemName = prompt("Masukkan nama barang:");
