@@ -1,208 +1,723 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Rekap Barang ATK 2025</title>
-
-  <!-- Style -->
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f4f4f4;
-      padding: 20px;
-      margin: 0;
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #2c3e50;
-    }
-
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      margin-bottom: 20px;
-      gap: 10px;
-    }
-
-    select, input[type="text"], button {
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-
-    button {
-      cursor: pointer;
-      background-color: #3498db;
-      color: white;
-      border: none;
-    }
-
-    button:hover {
-      background-color: #2980b9;
-    }
-
-    .table-container {
-      overflow-x: auto;
-      background: #fff;
-      border-radius: 10px;
-      padding: 15px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 600px;
-    }
-
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
-      text-align: left;
-    }
-
-    th {
-      background-color: #3498db;
-      color: white;
-    }
-
-    tr:nth-child(even) {
-      background-color: #f9f9f9;
-    }
-
-    @media (max-width: 600px) {
-      .controls {
-        flex-direction: column;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Alat Tulis Kantor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --secondary: #10b981;
+            --danger: #ef4444;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f3f4f6;
+        }
+        
+        .calendar-day {
+            transition: all 0.2s ease;
+        }
+        
+        .calendar-day.has-order {
+            background-color: rgba(16, 185, 129, 0.1);
+            position: relative;
+        }
+        
+        .calendar-day.has-order::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 6px;
+            background-color: var(--secondary);
+            border-radius: 50%;
+        }
+        
+        .calendar-day:hover {
+            background-color: #e5e7eb;
+            cursor: pointer;
+        }
+        
+        .calendar-day.selected {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .stock-card {
+            transition: all 0.3s ease;
+        }
+        
+        .stock-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .low-stock {
+            border-left: 4px solid var(--danger);
+        }
+        
+        .medium-stock {
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .high-stock {
+            border-left: 4px solid var(--secondary);
+        }
+        
+        .order-badge {
+            background-color: var(--secondary);
+            color: white;
+            font-size: 0.7rem;
+        }
+    </style>
 </head>
-<body>
+<body class="bg-gray-100">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                <div class="flex items-center">
+                    <img src="https://placehold.co/40x40" alt="Logo perusahaan dengan desain modern warna biru dengan ikon pensil dan clipboard" class="rounded-lg mr-3">
+                    <h1 class="text-xl font-semibold text-gray-800">Inventory Alat Tulis Kantor</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center">
+                        <i class="fas fa-plus mr-2"></i>Tambah Barang
+                    </button>
+                    <div class="relative">
+                        <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-md text-sm font-medium flex items-center">
+                            <i class="fas fa-bell mr-2"></i>
+                            <span class="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
+                        </button>
+                    </div>
+                    <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                        <span class="text-indigo-600 font-medium">AD</span>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-  <h1>Rekap Barang ATK 2025</h1>
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Total Barang</p>
+                            <h3 class="text-2xl font-bold text-indigo-600 mt-1">127</h3>
+                        </div>
+                        <div class="bg-indigo-100 p-3 rounded-lg">
+                            <i class="fas fa-boxes text-indigo-600 text-lg"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-3">+5 dari bulan lalu</p>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Stok Rendah</p>
+                            <h3 class="text-2xl font-bold text-red-500 mt-1">8</h3>
+                        </div>
+                        <div class="bg-red-100 p-3 rounded-lg">
+                            <i class="fas fa-exclamation-triangle text-red-500 text-lg"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-3">Perlu restock segera</p>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Pemesanan Hari Ini</p>
+                            <h3 class="text-2xl font-bold text-green-500 mt-1">3</h3>
+                        </div>
+                        <div class="bg-green-100 p-3 rounded-lg">
+                            <i class="fas fa-clipboard-check text-green-500 text-lg"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-3">2 sudah diproses</p>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Barang Habis</p>
+                            <h3 class="text-2xl font-bold text-yellow-500 mt-1">2</h3>
+                        </div>
+                        <div class="bg-yellow-100 p-3 rounded-lg">
+                            <i class="fas fa-box-open text-yellow-500 text-lg"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-3">Perlu pemesanan baru</p>
+                </div>
+            </div>
 
-  <!-- Filter, Search, Export -->
-  <div class="controls">
-    <select id="filterDropdown">
-      <option value="">Semua Kategori</option>
-    </select>
-
-    <input type="text" id="searchBox" placeholder="Cari barang..."/>
-
-    <div>
-      <button onclick="downloadExcel()">Download Excel</button>
-      <button onclick="downloadPDF()">Download PDF</button>
+            <!-- Dashboard Layout -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Calendar Section -->
+                <div class="lg:col-span-1 bg-white rounded-lg shadow overflow-hidden">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-lg font-semibold text-gray-800">Kalender Pemesanan</h2>
+                            <button class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                                Lihat Semua
+                            </button>
+                        </div>
+                        
+                        <!-- Month Navigation -->
+                        <div class="flex justify-between items-center mb-4">
+                            <button class="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <h3 class="text-lg font-semibold text-gray-800">Juli 2023</h3>
+                            <button class="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Calendar Grid -->
+                        <div class="mt-4">
+                            <div class="grid grid-cols-7 gap-1 text-xs text-center text-gray-500 font-medium mb-2">
+                                <div class="py-1">M</div>
+                                <div class="py-1">S</div>
+                                <div class="py-1">S</div>
+                                <div class="py-1">R</div>
+                                <div class="py-1">K</div>
+                                <div class="py-1">J</div>
+                                <div class="py-1">S</div>
+                            </div>
+                            
+                            <div class="grid grid-cols-7 gap-1 text-sm">
+                                <!-- Empty days -->
+                                <div class="py-2"></div>
+                                <div class="py-2"></div>
+                                <div class="py-2"></div>
+                                <div class="py-2"></div>
+                                <div class="py-2"></div>
+                                <div class="py-2"></div>
+                                <div class="py-2 calendar-day rounded-md">1</div>
+                                
+                                <!-- Week 2 -->
+                                <div class="py-2 calendar-day rounded-md">2</div>
+                                <div class="py-2 calendar-day rounded-md">3</div>
+                                <div class="py-2 calendar-day rounded-md">4</div>
+                                <div class="py-2 calendar-day has-order rounded-md">5</div>
+                                <div class="py-2 calendar-day rounded-md">6</div>
+                                <div class="py-2 calendar-day rounded-md">7</div>
+                                <div class="py-2 calendar-day rounded-md">8</div>
+                                
+                                <!-- Week 3 -->
+                                <div class="py-2 calendar-day rounded-md">9</div>
+                                <div class="py-2 calendar-day rounded-md">10</div>
+                                <div class="py-2 calendar-day has-order rounded-md">11</div>
+                                <div class="py-2 calendar-day rounded-md">12</div>
+                                <div class="py-2 calendar-day has-order rounded-md">13</div>
+                                <div class="py-2 calendar-day rounded-md">14</div>
+                                <div class="py-2 calendar-day rounded-md">15</div>
+                                
+                                <!-- Week 4 -->
+                                <div class="py-2 calendar-day selected rounded-md">16</div>
+                                <div class="py-2 calendar-day rounded-md">17</div>
+                                <div class="py-2 calendar-day rounded-md">18</div>
+                                <div class="py-2 calendar-day has-order rounded-md">19</div>
+                                <div class="py-2 calendar-day rounded-md">20</div>
+                                <div class="py-2 calendar-day rounded-md">21</div>
+                                <div class="py-2 calendar-day rounded-md">22</div>
+                                
+                                <!-- Week 5 -->
+                                <div class="py-2 calendar-day rounded-md">23</div>
+                                <div class="py-2 calendar-day rounded-md">24</div>
+                                <div class="py-2 calendar-day has-order rounded-md">25</div>
+                                <div class="py-2 calendar-day rounded-md">26</div>
+                                <div class="py-2 calendar-day rounded-md">27</div>
+                                <div class="py-2 calendar-day rounded-md">28</div>
+                                <div class="py-2 calendar-day rounded-md">29</div>
+                                
+                                <!-- Week 6 -->
+                                <div class="py-2 calendar-day rounded-md">30</div>
+                                <div class="py-2 calendar-day rounded-md">31</div>
+                                <div class="py-2"></div>
+                                <div class="py-2"></div>
+                                <div class="py-2"></div>
+                                <div class="py-2"></div>
+                                <div class="py-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Orders for Selected Day -->
+                    <div class="border-t border-gray-200 px-6 py-4">
+                        <h3 class="font-medium text-gray-800 mb-3">Pemesanan untuk Hari Ini (16 Juli)</h3>
+                        
+                        <div class="space-y-3">
+                            <div class="flex items-start p-3 bg-gray-50 rounded-lg">
+                                <div class="mr-3 mt-1">
+                                    <i class="fas fa-file-alt text-indigo-500"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium">Pesanan #ATK-2023-076</p>
+                                    <p class="text-xs text-gray-500">6 barang • Div. Keuangan</p>
+                                </div>
+                                <span class="order-badge px-2 py-1 rounded-full text-xs">Diproses</span>
+                            </div>
+                            
+                            <div class="flex items-start p-3 bg-gray-50 rounded-lg">
+                                <div class="mr-3 mt-1">
+                                    <i class="fas fa-file-alt text-indigo-500"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium">Pesanan #ATK-2023-077</p>
+                                    <p class="text-xs text-gray-500">3 barang • Div. SDM</p>
+                                </div>
+                                <span class="order-badge px-2 py-1 rounded-full text-xs">Baru</span>
+                            </div>
+                        </div>
+                        
+                        <button class="mt-4 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 py-2 rounded-md text-sm font-medium flex items-center justify-center">
+                            <i class="fas fa-plus mr-2"></i>Tambah Pemesanan
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Item List Section -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <div class="flex justify-between items-center">
+                                <h2 class="text-lg font-semibold text-gray-800">Daftar Alat Tulis Kantor</h2>
+                                <div class="flex space-x-2">
+                                    <div class="relative">
+                                        <input type="text" placeholder="Cari barang..." class="pl-8 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                                    </div>
+                                    <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-md text-sm font-medium flex items-center">
+                                        <i class="fas fa-filter mr-2"></i>Filter
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Nama Barang
+                                        </th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Kategori
+                                        </th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Stok
+                                        </th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Terakhir Dibeli
+                                        </th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Aksi
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <!-- Item 1 -->
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                                    <i class="fas fa-pen text-indigo-600"></i>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900">Pulpen Standard AE7</div>
+                                                    <div class="text-sm text-gray-500">No. Inventory: INV-ATK-001</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900">Alat Tulis</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                                    <div class="bg-green-500 h-2 rounded-full" style="width: 76%"></div>
+                                                </div>
+                                                <span class="text-sm font-medium text-gray-900">76/100</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            10 Juli 2023
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
+                                            <button class="text-red-600 hover:text-red-900">Hapus</button>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Item 2 -->
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-10 w-10 bg-red-100 rounded-lg flex items-center justify-center">
+                                                    <i class="fas fa-sticky-note text-red-600"></i>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900">Buku Catatan A4</div>
+                                                    <div class="text-sm text-gray-500">No. Inventory: INV-ATK-002</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900">Kertas</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                                    <div class="bg-red-500 h-2 rounded-full" style="width: 12%"></div>
+                                                </div>
+                                                <span class="text-sm font-medium text-gray-900">12/100</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            5 Juli 2023
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
+                                            <button class="text-red-600 hover:text-red-900">Hapus</button>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Item 3 -->
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                                    <i class="fas fa-highlighter text-blue-600"></i>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900">Stabilo Boss Pastel</div>
+                                                    <div class="text-sm text-gray-500">No. Inventory: INV-ATK-003</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900">Alat Tulis</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 35%"></div>
+                                                </div>
+                                                <span class="text-sm font-medium text-gray-900">35/50</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            2 Juli 2023
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
+                                            <button class="text-red-600 hover:text-red-900">Hapus</button>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Item 4 -->
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                                    <i class="fas fa-paperclip text-green-600"></i>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900">Klip Kertas No.3</div>
+                                                    <div class="text-sm text-gray-500">No. Inventory: INV-ATK-004</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900">Perlengkapan Kantor</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                                    <div class="bg-green-500 h-2 rounded-full" style="width: 65%"></div>
+                                                </div>
+                                                <span class="text-sm font-medium text-gray-900">65/100</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            15 Juni 2023
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
+                                            <button class="text-red-600 hover:text-red-900">Hapus</button>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Item 5 -->
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                                    <i class="fas fa-tape text-purple-600"></i>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900">Isi Staples Max 50</div>
+                                                    <div class="text-sm text-gray-500">No. Inventory: INV-ATK-005</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900">Perlengkapan Kantor</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                                    <div class="bg-red-500 h-2 rounded-full" style="width: 8%"></div>
+                                                </div>
+                                                <span class="text-sm font-medium text-gray-900">8/20</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            28 Juni 2023
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
+                                            <button class="text-red-600 hover:text-red-900">Hapus</button>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Item 6 -->
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-10 w-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                                                    <i class="fas fa-ruler text-yellow-600"></i>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900">Penggaris 30cm</div>
+                                                    <div class="text-sm text-gray-500">No. Inventory: INV-ATK-006</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900">Alat Tulis</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                                    <div class="bg-green-500 h-2 rounded-full" style="width: 82%"></div>
+                                                </div>
+                                                <span class="text-sm font-medium text-gray-900">41/50</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            3 Juli 2023
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
+                                            <button class="text-red-600 hover:text-red-900">Hapus</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="bg-gray-50 px-6 py-3 flex items-center justify-between border-t border-gray-200">
+                            <div class="flex-1 flex justify-between items-center sm:hidden">
+                                <button class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                    Sebelumnya
+                                </button>
+                                <button class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                    Selanjutnya
+                                </button>
+                            </div>
+                            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-700">
+                                        Menampilkan <span class="font-medium">1</span> sampai <span class="font-medium">6</span> dari <span class="font-medium">127</span> barang
+                                    </p>
+                                </div>
+                                <div>
+                                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                        <button class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                            <span class="sr-only">Sebelumnya</span>
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                        <button aria-current="page" class="z-10 bg-indigo-50 border-indigo-500 text-indigo-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                            1
+                                        </button>
+                                        <button class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                            2
+                                        </button>
+                                        <button class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                            3
+                                        </button>
+                                        <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                            ...
+                                        </span>
+                                        <button class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                            8
+                                        </button>
+                                        <button class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                            <span class="sr-only">Selanjutnya</span>
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Low Stock Alert -->
+                    <div class="mt-6 bg-white rounded-lg shadow overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h2 class="text-lg font-semibold text-gray-800">Stok Rendah</h2>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                            <!-- Low Stock Item 1 -->
+                            <div class="stock-card low-stock bg-white rounded-lg shadow-sm p-4">
+                                <div class="flex items-start">
+                                    <div class="flex-shrink-0 h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-sticky-note text-red-600"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-sm font-medium text-gray-900">Buku Catatan A4</h3>
+                                        <p class="text-xs text-gray-500 mt-1">No. Inventory: INV-ATK-002</p>
+                                        <div class="mt-2">
+                                            <span class="text-xs font-semibold inline-block py-1 px-2 rounded-full text-red-600 bg-red-100">
+                                                Stok Rendah
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-4">
+                                    <div class="flex justify-between text-sm text-gray-500">
+                                        <span>Sisa:</span>
+                                        <span class="font-semibold text-red-600">12/100</span>
+                                    </div>
+                                    <div class="mt-2 bg-gray-200 rounded-full h-2">
+                                        <div class="bg-red-500 h-2 rounded-full" style="width: 12%"></div>
+                                    </div>
+                                </div>
+                                <button class="mt-4 w-full bg-white border border-red-300 text-red-600 hover:bg-red-50 py-1 rounded text-sm font-medium">
+                                    Pesan Sekarang
+                                </button>
+                            </div>
+                            
+                            <!-- Low Stock Item 2 -->
+                            <div class="stock-card low-stock bg-white rounded-lg shadow-sm p-4">
+                                <div class="flex items-start">
+                                    <div class="flex-shrink-0 h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-tape text-purple-600"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-sm font-medium text-gray-900">Isi Staples Max 50</h3>
+                                        <p class="text-xs text-gray-500 mt-1">No. Inventory: INV-ATK-005</p>
+                                        <div class="mt-2">
+                                            <span class="text-xs font-semibold inline-block py-1 px-2 rounded-full text-purple-600 bg-purple-100">
+                                                Hampir Habis
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-4">
+                                    <div class="flex justify-between text-sm text-gray-500">
+                                        <span>Sisa:</span>
+                                        <span class="font-semibold text-purple-600">8/20</span>
+                                    </div>
+                                    <div class="mt-2 bg-gray-200 rounded-full h-2">
+                                        <div class="bg-purple-500 h-2 rounded-full" style="width: 40%"></div>
+                                    </div>
+                                </div>
+                                <button class="mt-4 w-full bg-white border border-purple-300 text-purple-600 hover:bg-purple-50 py-1 rounded text-sm font-medium">
+                                    Pesan Sekarang
+                                </button>
+                            </div>
+                            
+                            <!-- Low Stock Item 3 -->
+                            <div class="stock-card medium-stock bg-white rounded-lg shadow-sm p-4">
+                                <div class="flex items-start">
+                                    <div class="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-highlighter text-blue-600"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-sm font-medium text-gray-900">Stabilo Boss Pastel</h3>
+                                        <p class="text-xs text-gray-500 mt-1">No. Inventory: INV-ATK-003</p>
+                                        <div class="mt-2">
+                                            <span class="text-xs font-semibold inline-block py-1 px-2 rounded-full text-blue-600 bg-blue-100">
+                                                Stok Sedang
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-4">
+                                    <div class="flex justify-between text-sm text-gray-500">
+                                        <span>Sisa:</span>
+                                        <span class="font-semibold text-blue-600">35/50</span>
+                                    </div>
+                                    <div class="mt-2 bg-gray-200 rounded-full h-2">
+                                        <div class="bg-blue-500 h-2 rounded-full" style="width: 70%"></div>
+                                    </div>
+                                </div>
+                                <button class="mt-4 w-full bg-white border border-blue-300 text-blue-600 hover:bg-blue-50 py-1 rounded text-sm font-medium">
+                                    Tambah ke Pesanan
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
-  </div>
 
-  <!-- Tabel -->
-  <div class="table-container">
-    <table id="rekapTable">
-      <thead></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-
-  <!-- Script -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script>
-    const sheetID = '1AlxZR5kufSMd2oWZScDGjnB_fwJBaBvxDwPyhLtS3uc';
-    const sheetName = 'Sheet1';
-    const url = `https://opensheet.elk.sh/${sheetID}/${sheetName}`;
-    let allData = []; // cache data
-
-    const table = document.querySelector('#rekapTable');
-    const thead = table.querySelector('thead');
-    const tbody = table.querySelector('tbody');
-    const filterDropdown = document.getElementById('filterDropdown');
-    const searchBox = document.getElementById('searchBox');
-
-    fetch(url)
-      .then(res => res.json())
-      .then(data => {
-        allData = data;
-        renderTable(allData);
-        populateDropdown(allData, 'Kategori'); // ganti 'Kategori' sesuai nama kolom filter
-      });
-
-    function renderTable(data) {
-      if (data.length === 0) return;
-
-      // Header
-      const headers = Object.keys(data[0]);
-      thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
-
-      // Data
-      tbody.innerHTML = '';
-      data.forEach(row => {
-        const rowHTML = headers.map(key => `<td>${row[key] || ''}</td>`).join('');
-        tbody.innerHTML += `<tr>${rowHTML}</tr>`;
-      });
-    }
-
-    function populateDropdown(data, columnName) {
-      const values = [...new Set(data.map(row => row[columnName]).filter(v => v))];
-      values.sort().forEach(value => {
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = value;
-        filterDropdown.appendChild(option);
-      });
-    }
-
-    function filterAndSearch() {
-      const selected = filterDropdown.value.toLowerCase();
-      const keyword = searchBox.value.toLowerCase();
-
-      const filtered = allData.filter(row => {
-        const matchFilter = !selected || (row['Kategori'] || '').toLowerCase() === selected;
-        const matchSearch = Object.values(row).some(value =>
-          (value || '').toLowerCase().includes(keyword)
-        );
-        return matchFilter && matchSearch;
-      });
-
-      renderTable(filtered);
-    }
-
-    filterDropdown.addEventListener('change', filterAndSearch);
-    searchBox.addEventListener('input', filterAndSearch);
-
-    // Download Excel
-    function downloadExcel() {
-      const worksheet = XLSX.utils.json_to_sheet(allData);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Rekap ATK');
-      XLSX.writeFile(workbook, 'Rekap_ATK_2025.xlsx');
-    }
-
-    // Download PDF
-    async function downloadPDF() {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      doc.text("Rekap Barang ATK 2025", 10, 10);
-
-      let rows = allData.map(row => Object.values(row));
-      let headers = Object.keys(allData[0]);
-
-      doc.autoTable({
-        head: [headers],
-        body: rows,
-        startY: 20,
-        styles: { fontSize: 8 }
-      });
-
-      doc.save("Rekap_ATK_2025.pdf");
-    }
-  </script>
-
-  <!-- AutoTable Plugin for jsPDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Calendar day selection
+            const calendarDays = document.querySelectorAll('.calendar-day');
+            calendarDays.forEach(day => {
+                day.addEventListener('click', function() {
+                    // Remove selected class from all days
+                    calendarDays.forEach(d => d.classList.remove('selected'));
+                    // Add selected class to clicked day
+                    this.classList.add('selected');
+                    
+                    // In a real app, you would fetch orders for the selected day here
+                    // For demo purposes, we'll just update the date in the orders section
+                    const dayNumber = this.textContent.trim();
+                    const orderDateElement = document.querySelector('.border-t.border-gray-200 h3');
+                    orderDateElement.textContent = `Pemesanan untuk ${dayNumber} Juli`;
+                });
+            });
+            
+            // Simulate loading animation for stock cards
+            const stockCards = document.querySelectorAll('.stock-card');
+            stockCards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transition = 'all 0.3s ease';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transition = 'all 0.3s ease';
+                });
+            });
+            
+            // Today's date highlighting
+            const today = new Date();
+            const currentDay = today.getDate();
+            if (currentDay <= 31) { // Make sure we don't exceed calendar days
+                calendarDays.forEach(day => {
+                    if (parseInt(day.textContent.trim()) === currentDay) {
+                        day.classList.add('selected');
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>
