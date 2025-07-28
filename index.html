@@ -85,6 +85,24 @@
             color: white;
             font-size: 0.7rem;
         }
+
+        /* Gaya Notifikasi */
+        #notificationPanel {
+            position: absolute;
+            top: 100%; /* Di bawah tombol notifikasi */
+            right: 0;
+            width: 300px;
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            z-index: 10;
+            display: none; /* Sembunyikan secara default */
+            padding: 1rem;
+            margin-top: 0.5rem;
+        }
+        #notificationPanel.show {
+            display: block;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -93,7 +111,7 @@
         <header class="bg-white shadow-sm">
             <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
                 <div class="flex items-center">
-                    <img src="https://placehold.co/40x40" alt="Logo perusahaan dengan desain modern warna biru dengan ikon pensil dan clipboard" class="rounded-lg mr-3">
+                    <img src="genetek-logo.png" alt="Logo GENETEK" class="w-10 h-10 rounded-full">
                     <h1 class="text-xl font-semibold text-gray-800">Inventory Alat Tulis Kantor</h1>
                 </div>
                 <div class="flex items-center space-x-4">
@@ -101,14 +119,23 @@
                         <i class="fas fa-plus mr-2"></i>Tambah Barang
                     </button>
                     <div class="relative">
-                        <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-md text-sm font-medium flex items-center">
+                        <button id="notificationButton" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-md text-sm font-medium flex items-center">
                             <i class="fas fa-bell mr-2"></i>
-                            <span class="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
+                            <span id="notificationBadge" class="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
                         </button>
+                        <!-- Notification Panel -->
+                        <div id="notificationPanel" class="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-orientation="vertical" aria-labelledby="notification-menu-button" tabindex="-1">
+                            <div class="px-4 py-2 text-sm text-gray-700 font-semibold border-b border-gray-200">Notifikasi</div>
+                            <div id="notificationContent" class="py-1">
+                                <!-- Notifikasi akan dimuat di sini -->
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Tidak ada notifikasi baru.</a>
+                            </div>
+                            <div class="px-4 py-2 text-sm text-gray-500 border-t border-gray-200 text-center">
+                                <button id="markAllRead" class="text-indigo-600 hover:text-indigo-800">Tandai semua sudah dibaca</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                        <span class="text-indigo-600 font-medium">AD</span>
-                    </div>
+                    <!-- Logo AD dihapus -->
                 </div>
             </div>
         </header>
@@ -219,7 +246,7 @@
                             <p class="text-sm text-gray-500 text-center">Tidak ada pemesanan untuk tanggal ini.</p>
                         </div>
                         
-                        <button class="mt-4 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 py-2 rounded-md text-sm font-medium flex items-center justify-center">
+                        <button id="addOrderButton" class="mt-4 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 py-2 rounded-md text-sm font-medium flex items-center justify-center">
                             <i class="fas fa-plus mr-2"></i>Tambah Pemesanan
                         </button>
                     </div>
@@ -326,12 +353,12 @@
         // Firebase configuration
         // GANTI DENGAN KONFIGURASI PROYEK FIREBASE ANDA
         const firebaseConfig = {
-              apiKey: "AIzaSyCZyx64uxbS12698ENLJMCAmrJmq5HIw8w",
-              authDomain: "inventoryefk.firebaseapp.com",
-              projectId: "inventoryefk",
-              storageBucket: "inventoryefk.firebasestorage.app",
-              messagingSenderId: "734937154821",
-              appId: "1:734937154821:web:63c0159cc62918a33f236c"
+                  apiKey: "AIzaSyCZyx64uxbS12698ENLJMCAmrJmq5HIw8w",
+                  authDomain: "inventoryefk.firebaseapp.com",
+                  projectId: "inventoryefk",
+                  storageBucket: "inventoryefk.firebasestorage.app",
+                  messagingSenderId: "734937154821",
+                  appId: "1:734937154821:web:63c0159cc62918a33f236c"
         };
 
         // Initialize Firebase
@@ -349,6 +376,12 @@
         const addButton = document.getElementById('addButton');
         const searchInput = document.getElementById('searchItem');
         const selectedDayOrdersContainer = document.getElementById('selectedDayOrders');
+        const addOrderButton = document.getElementById('addOrderButton');
+        const notificationButton = document.getElementById('notificationButton'); // <-- Notifikasi
+        const notificationBadge = document.getElementById('notificationBadge');   // <-- Notifikasi
+        const notificationPanel = document.getElementById('notificationPanel');   // <-- Notifikasi
+        const notificationContent = document.getElementById('notificationContent'); // <-- Notifikasi
+        const markAllReadButton = document.getElementById('markAllRead'); // <-- Notifikasi
 
 
         // Variabel untuk Pagination
@@ -356,6 +389,7 @@
         const itemsPerPage = 6; // Jumlah item per halaman
         let allItems = []; // Menyimpan semua item dari Firestore
         let filteredItems = []; // Menyimpan item setelah filter/pencarian
+        let notifications = []; // Menyimpan notifikasi
 
         // --- Fungsi Utilitas ---
         function formatDate(date) {
@@ -434,6 +468,7 @@
                 filterAndDisplayItems(); // Tampilkan item setelah dimuat
                 updateSummaryCards(); // Perbarui kartu ringkasan
                 loadLowStockItems(); // Muat item stok rendah
+                generateNotifications(); // Generate notifikasi berdasarkan data baru
             } catch (error) {
                 console.error("Error loading items:", error);
                 alert("Gagal memuat item: " + error.message);
@@ -476,7 +511,7 @@
                     stock: newStock,
                     maxStock: newMaxStock,
                     category: newCategory,
-                    lastPurchased: firebase.firestore.Timestamp.now() // Update tanggal terakhir dibeli jika diedit
+                    lastPurchased: firebase.firestore.Timestamp.now() // Update tanggal terakhir dibeli jika edited
                 });
                 alert("Item berhasil diperbarui!");
                 loadItems(); // Muat ulang daftar setelah pembaruan
@@ -595,8 +630,7 @@
             lowStockItemsElement.textContent = lowStockCount;
             outOfStockItemsElement.textContent = outOfStockCount;
 
-            // Data pemesanan hari ini masih statis untuk demo
-            todayOrdersElement.textContent = '0'; // Set to 0 initially
+            // todayOrdersElement akan diperbarui oleh fungsi kalender
         }
 
         // Memuat dan menampilkan item stok rendah
@@ -779,6 +813,138 @@
             }
         }
 
+        // Fungsi untuk menambahkan pemesanan baru (simulasi)
+        async function addOrder() {
+            const orderId = prompt("Masukkan ID Pemesanan (misal: ATK-2023-XXX):");
+            if (!orderId) return;
+
+            const numItems = parseInt(prompt("Jumlah barang yang dipesan:", "1"));
+            if (isNaN(numItems) || numItems <= 0) {
+                alert("Jumlah barang tidak valid.");
+                return;
+            }
+
+            const department = prompt("Departemen pemesan:", "Umum");
+            const status = prompt("Status pemesanan (Baru/Diproses/Selesai):", "Baru");
+
+            const selectedDayElement = document.querySelector('.calendar-day.selected');
+            if (!selectedDayElement) {
+                alert("Pilih tanggal di kalender terlebih dahulu.");
+                return;
+            }
+            const selectedDay = parseInt(selectedDayElement.textContent.trim());
+            const selectedDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), selectedDay);
+            const dateString = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+
+            // Tambahkan ke data ordersData (simulasi)
+            if (!ordersData[dateString]) {
+                ordersData[dateString] = [];
+            }
+            ordersData[dateString].push({
+                id: orderId,
+                items: numItems,
+                dept: department,
+                status: status
+            });
+
+            alert("Pemesanan berhasil ditambahkan (simulasi)!");
+            renderCalendar(); // Render ulang kalender untuk menampilkan tanda pesanan
+            updateSelectedDayOrders(selectedDate); // Perbarui daftar pesanan untuk hari yang dipilih
+            
+            // Dalam aplikasi nyata, Anda akan menyimpan ini ke koleksi 'orders' di Firestore:
+            /*
+            try {
+                await db.collection("orders").add({
+                    orderId: orderId,
+                    orderDate: firebase.firestore.Timestamp.fromDate(selectedDate),
+                    numItems: numItems,
+                    department: department,
+                    status: status,
+                    createdAt: firebase.firestore.Timestamp.now()
+                });
+                alert("Pemesanan berhasil ditambahkan ke Firestore!");
+                // Setelah menambahkan ke Firestore, Anda mungkin perlu memuat ulang data pesanan
+                // loadOrders(); 
+            } catch (error) {
+                console.error("Error adding order:", error);
+                alert("Gagal menambahkan pemesanan: " + error.message);
+            }
+            */
+        }
+
+        // --- Fungsi Notifikasi ---
+        function generateNotifications() {
+            notifications = []; // Reset notifikasi
+            const lowStockCount = parseInt(lowStockItemsElement.textContent);
+            const outOfStockCount = parseInt(outOfStockItemsElement.textContent);
+
+            if (lowStockCount > 0) {
+                notifications.push({
+                    type: 'warning',
+                    message: `Ada ${lowStockCount} barang dengan stok rendah. Segera periksa!`,
+                    read: false
+                });
+            }
+            if (outOfStockCount > 0) {
+                notifications.push({
+                    type: 'danger',
+                    message: `Ada ${outOfStockCount} barang yang habis. Perlu pemesanan baru!`,
+                    read: false
+                });
+            }
+            // Tambahkan notifikasi lain jika diperlukan (misal: pesanan baru, dll.)
+
+            updateNotificationDisplay();
+        }
+
+        function updateNotificationDisplay() {
+            notificationContent.innerHTML = '';
+            let unreadCount = 0;
+
+            if (notifications.length === 0) {
+                notificationContent.innerHTML = `<a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Tidak ada notifikasi baru.</a>`;
+            } else {
+                notifications.forEach((notif, index) => {
+                    if (!notif.read) {
+                        unreadCount++;
+                    }
+                    const notifItem = document.createElement('a');
+                    notifItem.href = "#";
+                    notifItem.className = `block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${notif.read ? 'opacity-70' : 'font-semibold'}`;
+                    notifItem.textContent = notif.message;
+                    notifItem.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        notifications[index].read = true;
+                        updateNotificationDisplay();
+                        // Arahkan pengguna ke bagian yang relevan, misal:
+                        // if (notif.type === 'warning') { window.location.hash = 'lowStockCards'; }
+                    });
+                    notificationContent.appendChild(notifItem);
+                });
+            }
+
+            if (unreadCount > 0) {
+                notificationBadge.classList.remove('hidden');
+            } else {
+                notificationBadge.classList.add('hidden');
+            }
+        }
+
+        function toggleNotificationPanel() {
+            notificationPanel.classList.toggle('show');
+            if (notificationPanel.classList.contains('show')) {
+                // Opsional: Tandai semua notifikasi sebagai sudah dibaca saat panel dibuka
+                // notifications.forEach(notif => notif.read = true);
+                // updateNotificationDisplay();
+            }
+        }
+
+        function markAllNotificationsAsRead() {
+            notifications.forEach(notif => notif.read = true);
+            updateNotificationDisplay();
+            notificationPanel.classList.remove('show'); // Tutup panel setelah ditandai
+        }
+
 
         // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', function() {
@@ -787,6 +953,18 @@
 
             addButton.addEventListener('click', addItem);
             searchInput.addEventListener('input', filterAndDisplayItems);
+            addOrderButton.addEventListener('click', addOrder);
+            
+            // Notifikasi Event Listeners
+            notificationButton.addEventListener('click', toggleNotificationPanel);
+            markAllReadButton.addEventListener('click', markAllNotificationsAsRead);
+            // Tutup panel notifikasi jika mengklik di luar
+            document.addEventListener('click', function(event) {
+                if (!notificationPanel.contains(event.target) && !notificationButton.contains(event.target)) {
+                    notificationPanel.classList.remove('show');
+                }
+            });
+
 
             document.getElementById('prevPage').addEventListener('click', () => {
                 if (currentPage > 1) {
@@ -806,11 +984,13 @@
             document.getElementById('prevMonth').addEventListener('click', () => {
                 currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
                 renderCalendar();
+                updateSelectedDayOrders(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1)); // Update orders for the first day of new month
             });
 
             document.getElementById('nextMonth').addEventListener('click', () => {
                 currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
                 renderCalendar();
+                updateSelectedDayOrders(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1)); // Update orders for the first day of new month
             });
 
             // Simulate loading animation for stock cards (from original code)
