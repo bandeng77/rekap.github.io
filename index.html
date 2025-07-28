@@ -216,27 +216,7 @@
                         
                         <div id="selectedDayOrders" class="space-y-3">
                             <!-- Orders will be populated by JavaScript -->
-                            <div class="flex items-start p-3 bg-gray-50 rounded-lg">
-                                <div class="mr-3 mt-1">
-                                    <i class="fas fa-file-alt text-indigo-500"></i>
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium">Pesanan #ATK-2023-076</p>
-                                    <p class="text-xs text-gray-500">6 barang • Div. Keuangan</p>
-                                </div>
-                                <span class="order-badge px-2 py-1 rounded-full text-xs">Diproses</span>
-                            </div>
-                            
-                            <div class="flex items-start p-3 bg-gray-50 rounded-lg">
-                                <div class="mr-3 mt-1">
-                                    <i class="fas fa-file-alt text-indigo-500"></i>
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium">Pesanan #ATK-2023-077</p>
-                                    <p class="text-xs text-gray-500">3 barang • Div. SDM</p>
-                                </div>
-                                <span class="order-badge px-2 py-1 rounded-full text-xs">Baru</span>
-                            </div>
+                            <p class="text-sm text-gray-500 text-center">Tidak ada pemesanan untuk tanggal ini.</p>
                         </div>
                         
                         <button class="mt-4 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 py-2 rounded-md text-sm font-medium flex items-center justify-center">
@@ -286,6 +266,9 @@
                                 </thead>
                                 <tbody id="itemsTableBody" class="bg-white divide-y divide-gray-200">
                                     <!-- Item data will be loaded here dynamically from Firebase -->
+                                    <tr>
+                                        <td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">Memuat data...</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -331,6 +314,7 @@
                         </div>
                         <div id="lowStockCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                             <!-- Low stock items will be loaded here dynamically from Firebase -->
+                            <p class="text-sm text-gray-500 text-center col-span-full">Tidak ada barang dengan stok rendah.</p>
                         </div>
                     </div>
                 </div>
@@ -364,6 +348,8 @@
         const outOfStockItemsElement = document.getElementById('outOfStockItems');
         const addButton = document.getElementById('addButton');
         const searchInput = document.getElementById('searchItem');
+        const selectedDayOrdersContainer = document.getElementById('selectedDayOrders');
+
 
         // Variabel untuk Pagination
         let currentPage = 1;
@@ -388,7 +374,7 @@
 
         function getStockBadgeText(stock, maxStock) {
             const percentage = (stock / maxStock) * 100;
-            if (percentage === 0) return 'Habis';
+            if (stock === 0) return 'Habis';
             if (percentage <= 15) return 'Stok Rendah';
             if (percentage <= 50) return 'Stok Sedang';
             return 'Stok Cukup';
@@ -396,7 +382,7 @@
 
         function getStockBadgeColor(stock, maxStock) {
             const percentage = (stock / maxStock) * 100;
-            if (percentage === 0) return 'text-yellow-600 bg-yellow-100';
+            if (stock === 0) return 'text-yellow-600 bg-yellow-100';
             if (percentage <= 15) return 'text-red-600 bg-red-100';
             if (percentage <= 50) return 'text-blue-600 bg-blue-100';
             return 'text-green-600 bg-green-100';
@@ -406,12 +392,26 @@
 
         // CREATE: Menambahkan item baru
         async function addItem() {
+            const itemName = prompt("Masukkan nama barang:");
+            if (!itemName) {
+                alert("Nama barang tidak boleh kosong.");
+                return;
+            }
+            const itemCategory = prompt("Masukkan kategori barang (misal: Alat Tulis, Kertas, Perlengkapan Kantor):", "Alat Tulis");
+            const itemStock = parseInt(prompt("Masukkan jumlah stok awal:", "10"));
+            const itemMaxStock = parseInt(prompt("Masukkan kapasitas stok maksimal:", "50"));
+
+            if (isNaN(itemStock) || isNaN(itemMaxStock) || itemStock < 0 || itemMaxStock <= 0 || itemStock > itemMaxStock) {
+                alert("Input stok tidak valid. Pastikan angka positif dan stok <= max stok.");
+                return;
+            }
+
             try {
                 const newItem = {
-                    name: "Barang Baru",
-                    category: "Umum",
-                    stock: 10,
-                    maxStock: 50,
+                    name: itemName,
+                    category: itemCategory || "Umum",
+                    stock: itemStock,
+                    maxStock: itemMaxStock,
                     lastPurchased: firebase.firestore.Timestamp.now()
                 };
                 await db.collection("office_supplies").add(newItem);
@@ -425,6 +425,9 @@
 
         // READ: Memuat semua item dari Firestore
         async function loadItems() {
+            itemsTableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">Memuat data...</td></tr>`;
+            lowStockCardsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center col-span-full">Memuat data...</p>`;
+
             try {
                 const snapshot = await db.collection("office_supplies").orderBy("name").get();
                 allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -434,6 +437,8 @@
             } catch (error) {
                 console.error("Error loading items:", error);
                 alert("Gagal memuat item: " + error.message);
+                itemsTableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-red-500">Gagal memuat data. Cek koneksi atau konfigurasi Firebase.</td></tr>`;
+                lowStockCardsContainer.innerHTML = `<p class="text-sm text-red-500 text-center col-span-full">Gagal memuat data stok rendah.</p>`;
             }
         }
 
@@ -445,29 +450,39 @@
                 return;
             }
 
-            // Contoh sederhana: meminta input baru
             const newName = prompt("Masukkan nama baru untuk barang:", itemToEdit.name);
-            const newStock = parseInt(prompt("Masukkan stok baru:", itemToEdit.stock));
-            const newMaxStock = parseInt(prompt("Masukkan stok maksimal baru:", itemToEdit.maxStock));
-            const newCategory = prompt("Masukkan kategori baru:", itemToEdit.category);
+            if (newName === null || newName.trim() === "") return; // User cancelled or empty input
 
-            if (newName !== null && !isNaN(newStock) && !isNaN(newMaxStock) && newCategory !== null) {
-                try {
-                    await db.collection("office_supplies").doc(id).update({
-                        name: newName,
-                        stock: newStock,
-                        maxStock: newMaxStock,
-                        category: newCategory,
-                        lastPurchased: firebase.firestore.Timestamp.now() // Update tanggal terakhir dibeli jika diedit
-                    });
-                    alert("Item berhasil diperbarui!");
-                    loadItems(); // Muat ulang daftar setelah pembaruan
-                } catch (error) {
-                    console.error("Error updating item:", error);
-                    alert("Gagal memperbarui item: " + error.message);
-                }
-            } else {
-                alert("Pembatalan atau input tidak valid.");
+            const newCategory = prompt("Masukkan kategori baru:", itemToEdit.category);
+            if (newCategory === null || newCategory.trim() === "") return;
+
+            const newStockStr = prompt("Masukkan stok baru:", itemToEdit.stock);
+            const newStock = parseInt(newStockStr);
+            if (newStockStr === null || isNaN(newStock) || newStock < 0) {
+                alert("Input stok tidak valid.");
+                return;
+            }
+
+            const newMaxStockStr = prompt("Masukkan stok maksimal baru:", itemToEdit.maxStock);
+            const newMaxStock = parseInt(newMaxStockStr);
+            if (newMaxStockStr === null || isNaN(newMaxStock) || newMaxStock <= 0 || newStock > newMaxStock) {
+                alert("Input stok maksimal tidak valid atau stok melebihi maksimal.");
+                return;
+            }
+            
+            try {
+                await db.collection("office_supplies").doc(id).update({
+                    name: newName,
+                    stock: newStock,
+                    maxStock: newMaxStock,
+                    category: newCategory,
+                    lastPurchased: firebase.firestore.Timestamp.now() // Update tanggal terakhir dibeli jika diedit
+                });
+                alert("Item berhasil diperbarui!");
+                loadItems(); // Muat ulang daftar setelah pembaruan
+            } catch (error) {
+                console.error("Error updating item:", error);
+                alert("Gagal memperbarui item: " + error.message);
             }
         }
 
@@ -490,6 +505,12 @@
         // Menampilkan item ke tabel
         function displayItems(items) {
             itemsTableBody.innerHTML = ''; // Kosongkan tabel
+            if (items.length === 0) {
+                itemsTableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">Tidak ada barang ditemukan.</td></tr>`;
+                updatePagination(0);
+                return;
+            }
+
             const startIndex = (currentPage - 1) * itemsPerPage;
             const endIndex = startIndex + itemsPerPage;
             const itemsToDisplay = items.slice(startIndex, endIndex);
@@ -497,15 +518,18 @@
             itemsToDisplay.forEach(item => {
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-gray-50';
+                const stockPercentage = (item.stock / item.maxStock) * 100;
+                const stockColor = stockPercentage <= 15 ? 'red' : (stockPercentage <= 50 ? 'yellow' : 'green');
+
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex items-center">
                             <div class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-pen text-indigo-600"></i>
+                                <i class="fas fa-box text-indigo-600"></i> <!-- Generic icon, could be dynamic -->
                             </div>
                             <div class="ml-4">
                                 <div class="text-sm font-medium text-gray-900">${item.name}</div>
-                                <div class="text-sm text-gray-500">No. Inventory: ${item.id}</div>
+                                <div class="text-sm text-gray-500">ID: ${item.id.substring(0, 8)}...</div>
                             </div>
                         </div>
                     </td>
@@ -515,7 +539,7 @@
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex items-center">
                             <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                                <div class="bg-${getStockStatus(item.stock, item.maxStock).split('-')[0]}-500 h-2 rounded-full" style="width: ${(item.stock / item.maxStock) * 100}%"></div>
+                                <div class="bg-${stockColor}-500 h-2 rounded-full" style="width: ${stockPercentage}%"></div>
                             </div>
                             <span class="text-sm font-medium text-gray-900">${item.stock}/${item.maxStock}</span>
                         </div>
@@ -572,7 +596,7 @@
             outOfStockItemsElement.textContent = outOfStockCount;
 
             // Data pemesanan hari ini masih statis untuk demo
-            todayOrdersElement.textContent = '3'; 
+            todayOrdersElement.textContent = '0'; // Set to 0 initially
         }
 
         // Memuat dan menampilkan item stok rendah
@@ -580,21 +604,27 @@
             lowStockCardsContainer.innerHTML = ''; // Kosongkan container
             const lowStockItems = allItems.filter(item => (item.stock / item.maxStock) * 100 <= 50); // Ambil stok rendah dan sedang
 
+            if (lowStockItems.length === 0) {
+                lowStockCardsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center col-span-full">Tidak ada barang dengan stok rendah.</p>`;
+                return;
+            }
+
             lowStockItems.forEach(item => {
                 const card = document.createElement('div');
                 const stockStatusClass = getStockStatus(item.stock, item.maxStock);
                 const badgeText = getStockBadgeText(item.stock, item.maxStock);
                 const badgeColorClass = getStockBadgeColor(item.stock, item.maxStock);
+                const stockColorBase = stockStatusClass.split('-')[0]; // e.g., 'low' -> 'red', 'medium' -> 'yellow'
 
                 card.className = `stock-card ${stockStatusClass} bg-white rounded-lg shadow-sm p-4`;
                 card.innerHTML = `
                     <div class="flex items-start">
-                        <div class="flex-shrink-0 h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-sticky-note text-red-600"></i> <!-- Icon bisa disesuaikan per kategori -->
+                        <div class="flex-shrink-0 h-12 w-12 bg-${stockColorBase}-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-box text-${stockColorBase}-600"></i> <!-- Icon bisa disesuaikan per kategori -->
                         </div>
                         <div class="ml-4">
                             <h3 class="text-sm font-medium text-gray-900">${item.name}</h3>
-                            <p class="text-xs text-gray-500 mt-1">No. Inventory: ${item.id}</p>
+                            <p class="text-xs text-gray-500 mt-1">ID: ${item.id.substring(0, 8)}...</p>
                             <div class="mt-2">
                                 <span class="text-xs font-semibold inline-block py-1 px-2 rounded-full ${badgeColorClass}">
                                     ${badgeText}
@@ -605,13 +635,13 @@
                     <div class="mt-4">
                         <div class="flex justify-between text-sm text-gray-500">
                             <span>Sisa:</span>
-                            <span class="font-semibold text-${stockStatusClass.split('-')[0]}-600">${item.stock}/${item.maxStock}</span>
+                            <span class="font-semibold text-${stockColorBase}-600">${item.stock}/${item.maxStock}</span>
                         </div>
                         <div class="mt-2 bg-gray-200 rounded-full h-2">
-                            <div class="bg-${stockStatusClass.split('-')[0]}-500 h-2 rounded-full" style="width: ${(item.stock / item.maxStock) * 100}%"></div>
+                            <div class="bg-${stockColorBase}-500 h-2 rounded-full" style="width: ${(item.stock / item.maxStock) * 100}%"></div>
                         </div>
                     </div>
-                    <button class="mt-4 w-full bg-white border border-${stockStatusClass.split('-')[0]}-300 text-${stockStatusClass.split('-')[0]}-600 hover:bg-${stockStatusClass.split('-')[0]}-50 py-1 rounded text-sm font-medium">
+                    <button class="mt-4 w-full bg-white border border-${stockColorBase}-300 text-${stockColorBase}-600 hover:bg-${stockColorBase}-50 py-1 rounded text-sm font-medium">
                         Pesan Sekarang
                     </button>
                 `;
@@ -649,6 +679,25 @@
 
         // --- Fungsi Kalender ---
         let currentCalendarDate = new Date();
+        let ordersData = {}; // Akan menyimpan data pemesanan dari Firestore
+
+        async function loadOrders() {
+            // Ini adalah placeholder. Dalam aplikasi nyata, Anda akan mengambil data pemesanan dari Firestore
+            // Contoh data statis untuk demo:
+            ordersData = {
+                "2023-07-05": [{ id: "ATK-2023-076", items: 6, dept: "Div. Keuangan", status: "Diproses" }],
+                "2023-07-11": [{ id: "ATK-2023-078", items: 2, dept: "Div. Pemasaran", status: "Baru" }],
+                "2023-07-13": [{ id: "ATK-2023-079", items: 4, dept: "Div. IT", status: "Selesai" }],
+                "2023-07-16": [ // Contoh data untuk hari ini
+                    { id: "ATK-2023-076", items: 6, dept: "Div. Keuangan", status: "Diproses" },
+                    { id: "ATK-2023-077", items: 3, dept: "Div. SDM", status: "Baru" }
+                ],
+                "2023-07-19": [{ id: "ATK-2023-080", items: 5, dept: "Div. Keuangan", status: "Baru" }],
+                "2023-07-25": [{ id: "ATK-2023-081", items: 1, dept: "Div. HRD", status: "Diproses" }]
+            };
+            renderCalendar();
+            updateSelectedDayOrders(new Date()); // Update orders for today initially
+        }
 
         function renderCalendar() {
             const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -676,9 +725,8 @@
                 dayDiv.className = 'py-2 calendar-day rounded-md';
                 dayDiv.textContent = day;
 
-                // Simulate orders for certain days (replace with actual data from Firestore)
-                const hasOrderDays = [5, 11, 13, 19, 25]; // Example days with orders
-                if (hasOrderDays.includes(day) && currentCalendarDate.getMonth() === 6 && currentCalendarDate.getFullYear() === 2023) { // Juli 2023
+                const dateString = `${currentCalendarDate.getFullYear()}-${String(currentCalendarDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                if (ordersData[dateString] && ordersData[dateString].length > 0) {
                     dayDiv.classList.add('has-order');
                 }
 
@@ -686,23 +734,56 @@
                 const today = new Date();
                 if (day === today.getDate() && currentCalendarDate.getMonth() === today.getMonth() && currentCalendarDate.getFullYear() === today.getFullYear()) {
                     dayDiv.classList.add('selected');
-                    document.getElementById('selectedDayOrdersTitle').textContent = `Pemesanan untuk Hari Ini (${day} ${monthNames[currentCalendarDate.getMonth()]})`;
                 }
 
                 dayDiv.addEventListener('click', function() {
                     document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
                     this.classList.add('selected');
-                    document.getElementById('selectedDayOrdersTitle').textContent = `Pemesanan untuk ${this.textContent.trim()} ${monthNames[currentCalendarDate.getMonth()]}`;
-                    // In a real app, you would fetch and display orders for this specific day
+                    const clickedDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), parseInt(this.textContent.trim()));
+                    updateSelectedDayOrders(clickedDate);
                 });
                 calendarGrid.appendChild(dayDiv);
             }
         }
 
+        function updateSelectedDayOrders(date) {
+            const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+            const selectedDayOrdersTitle = document.getElementById('selectedDayOrdersTitle');
+            selectedDayOrdersTitle.textContent = `Pemesanan untuk ${date.getDate()} ${monthNames[date.getMonth()]}`;
+            
+            selectedDayOrdersContainer.innerHTML = ''; // Clear previous orders
+
+            const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            const ordersForDay = ordersData[dateString] || [];
+
+            if (ordersForDay.length === 0) {
+                selectedDayOrdersContainer.innerHTML = `<p class="text-sm text-gray-500 text-center">Tidak ada pemesanan untuk tanggal ini.</p>`;
+                todayOrdersElement.textContent = '0';
+            } else {
+                ordersForDay.forEach(order => {
+                    const orderDiv = document.createElement('div');
+                    orderDiv.className = 'flex items-start p-3 bg-gray-50 rounded-lg';
+                    orderDiv.innerHTML = `
+                        <div class="mr-3 mt-1">
+                            <i class="fas fa-file-alt text-indigo-500"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium">Pesanan #${order.id}</p>
+                            <p class="text-xs text-gray-500">${order.items} barang • ${order.dept}</p>
+                        </div>
+                        <span class="order-badge px-2 py-1 rounded-full text-xs">${order.status}</span>
+                    `;
+                    selectedDayOrdersContainer.appendChild(orderDiv);
+                });
+                todayOrdersElement.textContent = ordersForDay.length;
+            }
+        }
+
+
         // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', function() {
             loadItems(); // Muat item saat halaman dimuat
-            renderCalendar(); // Render kalender saat halaman dimuat
+            loadOrders(); // Muat data pemesanan untuk kalender
 
             addButton.addEventListener('click', addItem);
             searchInput.addEventListener('input', filterAndDisplayItems);
