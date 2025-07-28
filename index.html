@@ -6,6 +6,11 @@
     <title>Dashboard Alat Tulis Kantor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --primary: #4f46e5;
@@ -87,8 +92,26 @@
                     <h1 class="text-xl font-semibold text-gray-800">Inventory Alat Tulis Kantor</h1>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center">
+                <button id="addButton" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center">
                         <i class="fas fa-plus mr-2"></i>Tambah Barang
+                    </button>
+                    <script>
+                        document.getElementById('addButton').addEventListener('click', async function() {
+                            try {
+                                await db.collection("office_supplies").add({
+                                    name: "New Item",
+                                    category: "Alat Tulis", 
+                                    stock: 0,
+                                    maxStock: 100,
+                                    lastPurchased: new Date()
+                                });
+                                alert("Item added!");
+                                loadItems(); // Function to refresh list
+                            } catch (error) {
+                                console.error("Error adding item:", error);
+                            }
+                        });
+                    </script>
                     </button>
                     <div class="relative">
                         <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-md text-sm font-medium flex items-center">
@@ -328,37 +351,39 @@
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
                                     <!-- Item 1 -->
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="flex items-center">
-                                                <div class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                                                    <i class="fas fa-pen text-indigo-600"></i>
+                                    <template id="itemTemplate">
+                                        <tr class="hover:bg-gray-50" id="item-${id}">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                                        <i class="fas fa-pen text-indigo-600"></i>
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="text-sm font-medium text-gray-900">${name}</div>
+                                                        <div class="text-sm text-gray-500">No. Inventory: ${id}</div>
+                                                    </div>
                                                 </div>
-                                                <div class="ml-4">
-                                                    <div class="text-sm font-medium text-gray-900">Pulpen Standard AE7</div>
-                                                    <div class="text-sm text-gray-500">No. Inventory: INV-ATK-001</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-900">${category}</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                                        <div class="bg-green-500 h-2 rounded-full" style="width: ${(stock/maxStock)*100}%"></div>
+                                                    </div>
+                                                    <span class="text-sm font-medium text-gray-900">${stock}/${maxStock}</span>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm text-gray-900">Alat Tulis</div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="flex items-center">
-                                                <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                                                    <div class="bg-green-500 h-2 rounded-full" style="width: 76%"></div>
-                                                </div>
-                                                <span class="text-sm font-medium text-gray-900">76/100</span>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            10 Juli 2023
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <button class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
-                                            <button class="text-red-600 hover:text-red-900">Hapus</button>
-                                        </td>
-                                    </tr>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                ${lastPurchased}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button class="edit-btn text-indigo-600 hover:text-indigo-900 mr-3" data-id="${id}">Edit</button>
+                                                <button class="delete-btn text-red-600 hover:text-red-900" data-id="${id}">Hapus</button>
+                                            </td>
+                                        </tr>
+                                    </template>
                                     
                                     <!-- Item 2 -->
                                     <tr class="hover:bg-gray-50">
@@ -677,6 +702,21 @@
     </div>
 
     <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCZyx64uxbS12698ENLJMCAmrJmq5HIw8w",
+            authDomain: "inventoryefk.firebaseapp.com",
+            projectId: "inventoryefk",
+            storageBucket: "inventoryefk.firebasestorage.app",
+            messagingSenderId: "734937154821",
+            appId: "1:734937154821:web:63c0159cc62918a33f236c"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
         document.addEventListener('DOMContentLoaded', function() {
             // Calendar day selection
             const calendarDays = document.querySelectorAll('.calendar-day');
@@ -719,104 +759,5 @@
             }
         });
     </script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
-
-<script>
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
-
-  const app = firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-
-  const barangForm = document.getElementById("barangForm");
-  const barangBody = document.getElementById("barangBody");
-
-  // Tambah barang
-  barangForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const data = {
-      nama: document.getElementById("nama").value,
-      no_inventory: document.getElementById("no_inventory").value,
-      kategori: document.getElementById("kategori").value,
-      stok_tersisa: parseInt(document.getElementById("stok_tersisa").value),
-      stok_total: parseInt(document.getElementById("stok_total").value),
-      terakhir_dibeli: document.getElementById("terakhir_dibeli").value
-    };
-
-    try {
-      await db.collection("barang").add(data);
-      barangForm.reset();
-    } catch (error) {
-      alert("Gagal menambahkan barang!");
-      console.error(error);
-    }
-  });
-
-  // Render data real-time
-  db.collection("barang").onSnapshot((snapshot) => {
-    barangBody.innerHTML = "";
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      const row = document.createElement("tr");
-
-      row.innerHTML = `
-        <td class="px-4 py-2">${data.nama} <br><small>${data.no_inventory}</small></td>
-        <td class="px-4 py-2">${data.kategori}</td>
-        <td class="px-4 py-2">${data.stok_tersisa}/${data.stok_total}</td>
-        <td class="px-4 py-2">${data.terakhir_dibeli}</td>
-        <td class="px-4 py-2">
-          <button onclick="editBarang('${doc.id}', ${JSON.stringify(data).replace(/"/g, '&quot;')})" class="text-indigo-600 hover:text-indigo-900">Edit</button>
-          <button onclick="hapusBarang('${doc.id}')" class="text-red-600 hover:text-red-900 ml-2">Hapus</button>
-        </td>
-      `;
-      barangBody.appendChild(row);
-    });
-  });
-
-  // Hapus barang
-  async function hapusBarang(id) {
-    if (confirm("Yakin ingin menghapus barang ini?")) {
-      await db.collection("barang").doc(id).delete();
-    }
-  }
-
-  // Edit barang
-  async function editBarang(id, data) {
-    document.getElementById("nama").value = data.nama;
-    document.getElementById("no_inventory").value = data.no_inventory;
-    document.getElementById("kategori").value = data.kategori;
-    document.getElementById("stok_tersisa").value = data.stok_tersisa;
-    document.getElementById("stok_total").value = data.stok_total;
-    document.getElementById("terakhir_dibeli").value = data.terakhir_dibeli;
-
-    document.querySelector("#barangForm button[type=submit]").textContent = "Simpan Perubahan";
-
-    barangForm.onsubmit = async (e) => {
-      e.preventDefault();
-
-      const updatedData = {
-        nama: document.getElementById("nama").value,
-        no_inventory: document.getElementById("no_inventory").value,
-        kategori: document.getElementById("kategori").value,
-        stok_tersisa: parseInt(document.getElementById("stok_tersisa").value),
-        stok_total: parseInt(document.getElementById("stok_total").value),
-        terakhir_dibeli: document.getElementById("terakhir_dibeli").value
-      };
-
-      await db.collection("barang").doc(id).set(updatedData);
-      barangForm.reset();
-      barangForm.onsubmit = null; // Reset ke mode tambah
-      document.querySelector("#barangForm button[type=submit]").textContent = "Tambahkan Barang";
-    };
-  }
-</script>
 </body>
 </html>
