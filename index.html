@@ -822,63 +822,57 @@
         }
 
         // Fungsi untuk menambahkan pemesanan baru (simulasi)
-        async function addOrder() {
-            const orderId = prompt("Masukkan ID Pemesanan (misal: ATK-2023-XXX):");
-            if (!orderId) return;
+async function addOrder() {
+    const orderId = prompt("Masukkan ID Pemesanan (misal: ATK-2023-XXX):");
+    if (!orderId) return;
 
-            const numItems = parseInt(prompt("Jumlah barang yang dipesan:", "1"));
-            if (isNaN(numItems) || numItems <= 0) {
-                alert("Jumlah barang tidak valid.");
-                return;
-            }
+    const numItems = parseInt(prompt("Jumlah barang yang dipesan:", "1"));
+    if (isNaN(numItems) || numItems <= 0) {
+        alert("Jumlah barang tidak valid.");
+        return;
+    }
 
-            const department = prompt("Departemen pemesan:", "Umum");
-            const status = prompt("Status pemesanan (Baru/Diproses/Selesai):", "Baru");
+    const department = prompt("Departemen pemesan:", "Umum");
+    const status = "Baru"; // Visitor can only create new orders with status 'Baru'
 
-            const selectedDayElement = document.querySelector('.calendar-day.selected');
-            if (!selectedDayElement) {
-                alert("Pilih tanggal di kalender terlebih dahulu.");
-                return;
-            }
-            const selectedDay = parseInt(selectedDayElement.textContent.trim());
-            const selectedDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), selectedDay);
-            const dateString = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+    const selectedDayElement = document.querySelector('.calendar-day.selected');
+    if (!selectedDayElement) {
+        alert("Pilih tanggal di kalender terlebih dahulu.");
+        return;
+    }
+    const selectedDay = parseInt(selectedDayElement.textContent.trim());
+    const selectedDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), selectedDay);
+    const dateString = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
 
-            // Tambahkan ke data ordersData (simulasi)
-            if (!ordersData[dateString]) {
-                ordersData[dateString] = [];
-            }
-            ordersData[dateString].push({
-                id: orderId,
-                items: numItems,
-                dept: department,
-                status: status
-            });
+    // Tambahkan ke data ordersData (simulasi)
+    if (!ordersData[dateString]) {
+        ordersData[dateString] = [];
+    }
+    ordersData[dateString].push({
+        id: orderId,
+        items: numItems,
+        dept: department,
+        status: status
+    });
 
-            alert("Pemesanan berhasil ditambahkan (simulasi)!");
-            renderCalendar(); // Render ulang kalender untuk menampilkan tanda pesanan
-            updateSelectedDayOrders(selectedDate); // Perbarui daftar pesanan untuk hari yang dipilih
-            
-            // Dalam aplikasi nyata, Anda akan menyimpan ini ke koleksi 'orders' di Firestore:
-            /*
-            try {
-                await db.collection("orders").add({
-                    orderId: orderId,
-                    orderDate: firebase.firestore.Timestamp.fromDate(selectedDate),
-                    numItems: numItems,
-                    department: department,
-                    status: status,
-                    createdAt: firebase.firestore.Timestamp.now()
-                });
-                alert("Pemesanan berhasil ditambahkan ke Firestore!");
-                // Setelah menambahkan ke Firestore, Anda mungkin perlu memuat ulang data pesanan
-                // loadOrders(); 
-            } catch (error) {
-                console.error("Error adding order:", error);
-                alert("Gagal menambahkan pemesanan: " + error.message);
-            }
-            */
-        }
+    // Simpan pesanan ke Firestore
+    try {
+        await db.collection("orders").add({
+            orderId: orderId,
+            orderDate: firebase.firestore.Timestamp.fromDate(selectedDate),
+            numItems: numItems,
+            department: department,
+            status: status,
+            createdAt: firebase.firestore.Timestamp.now()
+        });
+        alert("Pemesanan berhasil ditambahkan ke Firestore!");
+        renderCalendar(); // Render ulang kalender untuk menampilkan tanda pesanan
+        updateSelectedDayOrders(selectedDate); // Perbarui daftar pesanan untuk hari yang dipilih
+    } catch (error) {
+        console.error("Error adding order:", error);
+        alert("Gagal menambahkan pemesanan: " + error.message);
+    }
+}
 
         // --- Fungsi Notifikasi ---
         function generateNotifications() {
