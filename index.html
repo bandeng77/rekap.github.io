@@ -719,5 +719,104 @@
             }
         });
     </script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  const app = firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  const barangForm = document.getElementById("barangForm");
+  const barangBody = document.getElementById("barangBody");
+
+  // Tambah barang
+  barangForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const data = {
+      nama: document.getElementById("nama").value,
+      no_inventory: document.getElementById("no_inventory").value,
+      kategori: document.getElementById("kategori").value,
+      stok_tersisa: parseInt(document.getElementById("stok_tersisa").value),
+      stok_total: parseInt(document.getElementById("stok_total").value),
+      terakhir_dibeli: document.getElementById("terakhir_dibeli").value
+    };
+
+    try {
+      await db.collection("barang").add(data);
+      barangForm.reset();
+    } catch (error) {
+      alert("Gagal menambahkan barang!");
+      console.error(error);
+    }
+  });
+
+  // Render data real-time
+  db.collection("barang").onSnapshot((snapshot) => {
+    barangBody.innerHTML = "";
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const row = document.createElement("tr");
+
+      row.innerHTML = `
+        <td class="px-4 py-2">${data.nama} <br><small>${data.no_inventory}</small></td>
+        <td class="px-4 py-2">${data.kategori}</td>
+        <td class="px-4 py-2">${data.stok_tersisa}/${data.stok_total}</td>
+        <td class="px-4 py-2">${data.terakhir_dibeli}</td>
+        <td class="px-4 py-2">
+          <button onclick="editBarang('${doc.id}', ${JSON.stringify(data).replace(/"/g, '&quot;')})" class="text-indigo-600 hover:text-indigo-900">Edit</button>
+          <button onclick="hapusBarang('${doc.id}')" class="text-red-600 hover:text-red-900 ml-2">Hapus</button>
+        </td>
+      `;
+      barangBody.appendChild(row);
+    });
+  });
+
+  // Hapus barang
+  async function hapusBarang(id) {
+    if (confirm("Yakin ingin menghapus barang ini?")) {
+      await db.collection("barang").doc(id).delete();
+    }
+  }
+
+  // Edit barang
+  async function editBarang(id, data) {
+    document.getElementById("nama").value = data.nama;
+    document.getElementById("no_inventory").value = data.no_inventory;
+    document.getElementById("kategori").value = data.kategori;
+    document.getElementById("stok_tersisa").value = data.stok_tersisa;
+    document.getElementById("stok_total").value = data.stok_total;
+    document.getElementById("terakhir_dibeli").value = data.terakhir_dibeli;
+
+    document.querySelector("#barangForm button[type=submit]").textContent = "Simpan Perubahan";
+
+    barangForm.onsubmit = async (e) => {
+      e.preventDefault();
+
+      const updatedData = {
+        nama: document.getElementById("nama").value,
+        no_inventory: document.getElementById("no_inventory").value,
+        kategori: document.getElementById("kategori").value,
+        stok_tersisa: parseInt(document.getElementById("stok_tersisa").value),
+        stok_total: parseInt(document.getElementById("stok_total").value),
+        terakhir_dibeli: document.getElementById("terakhir_dibeli").value
+      };
+
+      await db.collection("barang").doc(id).set(updatedData);
+      barangForm.reset();
+      barangForm.onsubmit = null; // Reset ke mode tambah
+      document.querySelector("#barangForm button[type=submit]").textContent = "Tambahkan Barang";
+    };
+  }
+</script>
 </body>
 </html>
