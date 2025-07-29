@@ -231,9 +231,6 @@
                     <div class="p-6">
                         <div class="flex justify-between items-center mb-6">
                             <h2 class="text-lg font-semibold text-gray-800">Kalender Pemesanan</h2>
-                            <button class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
-                                Lihat Semua
-                            </button>
                         </div>
                         
                         <!-- Month Navigation -->
@@ -795,10 +792,6 @@ function displayItems(items) {
                 <div class="flex justify-between text-sm text-gray-500">
                     <span>Sisa:</span>
                     <span class="font-semibold text-${stockColorBase}-600">${item.stock}/${item.maxStock}</span>
-                </div>
-                <div class="mt-2 bg-gray-200 rounded-full h-2">
-                    <div class="bg-${stockColorBase}-500 h-2 rounded-full" style="width: ${(item.stock / item.maxStock) * 100}%"></div>
-                </div>
             </div>
         `;
         lowStockCardsContainer.appendChild(card);
