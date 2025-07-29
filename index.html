@@ -434,6 +434,80 @@
             return 'text-green-600 bg-green-100';
         }
 
+        // --- Fungsi Notifikasi ---
+        // Pindahkan definisi fungsi generateNotifications() ke sini agar dapat diakses
+        function generateNotifications() {
+            notifications = []; // Reset notifikasi
+            const lowStockCount = parseInt(lowStockItemsElement.textContent);
+            const outOfStockCount = parseInt(outOfStockItemsElement.textContent);
+
+            if (lowStockCount > 0) {
+                notifications.push({
+                    type: 'warning',
+                    message: `Ada ${lowStockCount} barang dengan stok rendah. Segera periksa!`,
+                    read: false
+                });
+            }
+            if (outOfStockCount > 0) {
+                notifications.push({
+                    type: 'danger',
+                    message: `Ada ${outOfStockCount} barang yang habis. Perlu pemesanan baru!`,
+                    read: false
+                });
+            }
+            // Tambahkan notifikasi lain jika diperlukan (misal: pesanan baru, dll.)
+
+            updateNotificationDisplay();
+        }
+
+        function updateNotificationDisplay() {
+            notificationContent.innerHTML = '';
+            let unreadCount = 0;
+
+            if (notifications.length === 0) {
+                notificationContent.innerHTML = `<a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Tidak ada notifikasi baru.</a>`;
+            } else {
+                notifications.forEach((notif, index) => {
+                    if (!notif.read) {
+                        unreadCount++;
+                    }
+                    const notifItem = document.createElement('a');
+                    notifItem.href = "#";
+                    notifItem.className = `block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${notif.read ? 'opacity-70' : 'font-semibold'}`;
+                    notifItem.textContent = notif.message;
+                    notifItem.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        notifications[index].read = true;
+                        updateNotificationDisplay();
+                        // Arahkan pengguna ke bagian yang relevan, misal:
+                        // if (notif.type === 'warning') { window.location.hash = 'lowStockCards'; }
+                    });
+                    notificationContent.appendChild(notifItem);
+                });
+            }
+
+            if (unreadCount > 0) {
+                notificationBadge.classList.remove('hidden');
+            } else {
+                notificationBadge.classList.add('hidden');
+            }
+        }
+
+        function toggleNotificationPanel() {
+            notificationPanel.classList.toggle('show');
+            if (notificationPanel.classList.contains('show')) {
+                // Opsional: Tandai semua notifikasi sebagai sudah dibaca saat panel dibuka
+                // notifications.forEach(notif => notif.read = true);
+                // updateNotificationDisplay();
+            }
+        }
+
+        function markAllNotificationsAsRead() {
+            notifications.forEach(notif => notif.read = true);
+            updateNotificationDisplay();
+            notificationPanel.classList.remove('show'); // Tutup panel setelah ditandai
+        }
+
         // --- Fungsi CRUD Firebase (office_supplies) ---
 
         // CREATE: Menambahkan item baru
@@ -809,13 +883,19 @@
                 ordersForDay.forEach(order => {
                     const orderDiv = document.createElement('div');
                     orderDiv.className = 'flex items-start p-3 bg-gray-50 rounded-lg';
+
+                    // Perbaikan: Tambahkan pemeriksaan kondisional untuk order.items
+                    const itemsDisplay = order.items && Array.isArray(order.items)
+                        ? order.items.map(item => `${item.name} (${item.quantity})`).join(', ')
+                        : 'Tidak ada barang'; // Teks default jika items tidak valid
+
                     orderDiv.innerHTML = `
                         <div class="mr-3 mt-1">
                             <i class="fas fa-file-alt text-indigo-500"></i>
                         </div>
                         <div class="flex-1">
                             <p class="text-sm font-medium">Pesanan #${order.orderId}</p>
-                            <p class="text-xs text-gray-500">${order.items.map(item => `${item.name} (${item.quantity})`).join(', ')} • ${order.department}</p>
+                            <p class="text-xs text-gray-500">${itemsDisplay} • ${order.department}</p>
                         </div>
                         <select class="order-status-select px-2 py-1 rounded-full text-xs bg-white border ${getStatusColorClass(order.status)}" data-order-id="${order.id}">
                             <option value="Baru" ${order.status === 'Baru' ? 'selected' : ''}>Baru</option>
