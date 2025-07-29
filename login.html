@@ -1,13 +1,5 @@
 <!DOCTYPE html>
 <html lang="id">
-      <head>
-    <meta http-equiv="refresh" content="0; url=/login.html" />
-    <title>Redirecting...</title>
-  </head>
-  <body>
-    <p>Redirecting to <a href="/login.html">/login.html</a>...</p>
-  </body>
-</html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -124,7 +116,7 @@
             try {
                 await auth.signInWithEmailAndPassword(email, password);
                 // Redirect to dashboard on successful login
-                window.location.href = 'rekap.html';
+                window.location.href = 'index.html';
             } catch (error) {
                 let message = 'Terjadi kesalahan saat login. Silakan coba lagi.';
                 switch (error.code) {
@@ -152,7 +144,7 @@
         // Handle Guest Login
         guestLoginBtn.addEventListener('click', () => {
             // Redirect to dashboard as guest
-            window.location.href = 'rekap.html?guest=true';
+            window.location.href = 'index.html?guest=true';
         });
 
         // Handle Register Link (for demonstration, you might create a separate register.html)
@@ -167,7 +159,7 @@
         auth.onAuthStateChanged(user => {
             if (user) {
                 // User is signed in, redirect to dashboard
-                window.location.href = 'rekap.html';
+                window.location.href = 'index.html';
             }
         });
     </script>
