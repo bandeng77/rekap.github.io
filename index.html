@@ -135,7 +135,10 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Logo AD dihapus -->
+                    <!-- Tambahkan tombol logout di sini -->
+                    <button id="logoutButton" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-md text-sm font-medium flex items-center">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
                 </div>
             </div>
         </header>
@@ -382,6 +385,7 @@
         const notificationPanel = document.getElementById('notificationPanel');   // <-- Notifikasi
         const notificationContent = document.getElementById('notificationContent'); // <-- Notifikasi
         const markAllReadButton = document.getElementById('markAllRead'); // <-- Notifikasi
+        const logoutButton = document.getElementById('logoutButton'); // Tambahkan ini
 
 
         // Variabel untuk Pagination
@@ -394,6 +398,27 @@
         // Variabel untuk Kalender dan Pemesanan
         let currentCalendarDate = new Date();
         let ordersData = {}; // Akan menyimpan data pemesanan dari Firestore (dari koleksi 'orders')
+
+        // --- Proteksi Rute (Redirect ke Login jika belum login) ---
+        auth.onAuthStateChanged(user => {
+            if (!user) {
+                // User is not signed in, redirect to login page
+                window.location.href = 'login.html';
+            }
+            // Jika user sudah login, tidak perlu melakukan apa-apa, biarkan halaman dashboard dimuat
+        });
+
+        // --- Handle Logout ---
+        logoutButton.addEventListener('click', async () => {
+            try {
+                await auth.signOut();
+                // Redirect to login page after successful logout
+                window.location.href = 'login.html';
+            } catch (error) {
+                console.error("Logout Error:", error);
+                alert("Gagal logout: " + error.message);
+            }
+        });
 
         // --- Fungsi Utilitas ---
         function formatDate(date) {
@@ -894,7 +919,7 @@
                             <i class="fas fa-file-alt text-indigo-500"></i>
                         </div>
                         <div class="flex-1">
-                            <p class="text-sm font-medium">Pesanan #${order.orderId}</p>
+                            <p class="text-sm font-medium">Pesanan untuk ${order.customerName}</p> <!-- Menampilkan nama pemesan -->
                             <p class="text-xs text-gray-500">${itemsDisplay} • ${order.department}</p>
                         </div>
                         <select class="order-status-select px-2 py-1 rounded-full text-xs bg-white border ${getStatusColorClass(order.status)}" data-order-id="${order.id}">
@@ -937,8 +962,8 @@
                     <h2 class="text-xl font-semibold mb-4">Tambah Pemesanan Baru</h2>
                     <form id="newOrderForm">
                         <div class="mb-4">
-                            <label class="block text-gray-700 text-sm font-bold mb-2" for="orderIdInput">ID Pemesanan:</label>
-                            <input type="text" id="orderIdInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="ATK-2023-XXX" required>
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="customerNameInput">Nama Pemesan:</label>
+                            <input type="text" id="customerNameInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Nama Pelanggan/Karyawan" required>
                         </div>
                         <div class="mb-4">
                             <label class="block text-gray-700 text-sm font-bold mb-2" for="departmentInput">Departemen Pemesan:</label>
@@ -1026,7 +1051,7 @@
             newOrderForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
 
-                const orderId = document.getElementById('orderIdInput').value;
+                const customerName = document.getElementById('customerNameInput').value; // Mengambil nama pemesan
                 const department = document.getElementById('departmentInput').value;
 
                 if (selectedOrderItems.length === 0) {
@@ -1045,7 +1070,7 @@
 
                 try {
                     await db.collection("orders").add({
-                        orderId: orderId,
+                        customerName: customerName, // Simpan nama pemesan
                         orderDate: firebase.firestore.Timestamp.fromDate(selectedDate),
                         department: department,
                         items: selectedOrderItems.map(item => ({
