@@ -103,6 +103,34 @@
         #notificationPanel.show {
             display: block;
         }
+
+        /* Penyesuaian Tabel agar lebih presisi */
+        .min-w-full th, .min-w-full td {
+            padding-left: 1.5rem; /* px-6 */
+            padding-right: 1.5rem; /* px-6 */
+            padding-top: 0.75rem; /* py-3 */
+            padding-bottom: 0.75rem; /* py-3 */
+            vertical-align: middle; /* Agar konten di tengah secara vertikal */
+        }
+        .min-w-full th:first-child, .min-w-full td:first-child {
+            width: 30%; /* Sesuaikan lebar kolom Nama Barang */
+        }
+        .min-w-full th:nth-child(2), .min-w-full td:nth-child(2) {
+            width: 20%; /* Sesuaikan lebar kolom Kategori */
+        }
+        .min-w-full th:nth-child(3), .min-w-full td:nth-child(3) {
+            width: 20%; /* Sesuaikan lebar kolom Stok */
+        }
+        .min-w-full th:nth-child(4), .min-w-full td:nth-child(4) {
+            width: 15%; /* Sesuaikan lebar kolom Terakhir Dibeli */
+        }
+        .min-w-full th:nth-child(5), .min-w-full td:nth-child(5) {
+            width: 15%; /* Sesuaikan lebar kolom Aksi */
+            text-align: center; /* Pusatkan teks Aksi */
+        }
+        .min-w-full td:nth-child(5) {
+            white-space: nowrap; /* Pastikan tombol tidak pecah baris */
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -157,7 +185,7 @@
                             <i class="fas fa-boxes text-indigo-600 text-lg"></i>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-3">+5 dari bulan lalu</p>
+                    <!-- <p class="text-xs text-gray-400 mt-3">+5 dari bulan lalu</p> --> <!-- Dihilangkan -->
                 </div>
                 
                 <div class="bg-white rounded-lg shadow p-6">
@@ -170,7 +198,7 @@
                             <i class="fas fa-exclamation-triangle text-red-500 text-lg"></i>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-3">Perlu restock segera</p>
+                    <!-- <p class="text-xs text-gray-400 mt-3">Perlu restock segera</p> --> <!-- Dihilangkan -->
                 </div>
                 
                 <div class="bg-white rounded-lg shadow p-6">
@@ -183,7 +211,7 @@
                             <i class="fas fa-clipboard-check text-green-500 text-lg"></i>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-3">2 sudah diproses</p>
+                    <!-- <p class="text-xs text-gray-400 mt-3">2 sudah diproses</p> --> <!-- Dihilangkan -->
                 </div>
                 
                 <div class="bg-white rounded-lg shadow p-6">
@@ -196,7 +224,7 @@
                             <i class="fas fa-box-open text-yellow-500 text-lg"></i>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-3">Perlu pemesanan baru</p>
+                    <!-- <p class="text-xs text-gray-400 mt-3">Perlu pemesanan baru</p> --> <!-- Dihilangkan -->
                 </div>
             </div>
 
@@ -277,19 +305,19 @@
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th scope="col" class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Nama Barang
                                         </th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th scope="col" class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Kategori
                                         </th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th scope="col" class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Stok
                                         </th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th scope="col" class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Terakhir Dibeli
                                         </th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th scope="col" class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Aksi
                                         </th>
                                     </tr>
@@ -668,7 +696,7 @@
                 const stockColor = stockPercentage <= 15 ? 'red' : (stockPercentage <= 50 ? 'yellow' : 'green');
 
                 row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td>
                         <div class="flex items-center">
                             <div class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
                                 <i class="fas fa-box text-indigo-600"></i> <!-- Generic icon, could be dynamic -->
@@ -679,10 +707,10 @@
                             </div>
                         </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td>
                         <div class="text-sm text-gray-900">${item.category}</div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td>
                         <div class="flex items-center">
                             <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
                                 <div class="bg-${stockColor}-500 h-2 rounded-full" style="width: ${stockPercentage}%"></div>
@@ -690,10 +718,10 @@
                             <span class="text-sm font-medium text-gray-900">${item.stock}/${item.maxStock}</span>
                         </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td class="text-sm text-gray-500">
                         ${formatDate(item.lastPurchased)}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td class="text-sm font-medium text-center">
                         <button class="edit-btn text-indigo-600 hover:text-indigo-900 mr-3" data-id="${item.id}">Edit</button>
                         <button class="delete-btn text-red-600 hover:text-red-900" data-id="${item.id}">Hapus</button>
                     </td>
@@ -1092,7 +1120,7 @@
             });
         }
 
-        // Fungsi untuk memperbarui status pemesanan dan mengurangi stok
+        // Fungsi untuk memperbarui status pemesanan dan mengurangi/mengembalikan stok
         async function updateOrderStatus(orderId, newStatus) {
             try {
                 const orderRef = db.collection("orders").doc(orderId);
@@ -1102,12 +1130,11 @@
                     return;
                 }
                 const oldStatus = orderDoc.data().status;
+                const orderItems = orderDoc.data().items;
+                const batch = db.batch();
 
-                // Hanya proses pengurangan stok jika status berubah menjadi "Selesai" dari status lain
+                // Skenario 1: Status berubah menjadi "Selesai" (kurangi stok)
                 if (newStatus === "Selesai" && oldStatus !== "Selesai") {
-                    const orderItems = orderDoc.data().items;
-                    const batch = db.batch(); // Gunakan batch untuk operasi atomik
-
                     for (const item of orderItems) {
                         const itemRef = db.collection("office_supplies").doc(item.itemId);
                         const itemDoc = await itemRef.get();
@@ -1117,26 +1144,62 @@
 
                             if (newStock < 0) {
                                 alert(`Gagal memperbarui stok untuk ${item.name}. Stok tidak mencukupi.`);
-                                // Batalkan batch jika ada masalah stok
-                                return;
+                                // Penting: Jika ada masalah stok, batalkan operasi batch
+                                return; 
                             }
                             batch.update(itemRef, { stock: newStock });
                         } else {
                             console.warn(`Item with ID ${item.itemId} not found in office_supplies.`);
                         }
                     }
-                    batch.update(orderRef, { status: newStatus }); // Perbarui status pemesanan dalam batch yang sama
-                    await batch.commit(); // Terapkan semua perubahan
+                    batch.update(orderRef, { status: newStatus });
+                    await batch.commit();
                     alert("Status pemesanan diperbarui dan stok barang berhasil dikurangi!");
                     await loadItems(); // Muat ulang daftar barang untuk memperbarui tampilan stok
-                } else if (newStatus !== "Selesai" && oldStatus === "Selesai") {
-                    // Jika status diubah dari "Selesai" ke status lain, mungkin perlu mengembalikan stok
-                    // Ini adalah skenario yang lebih kompleks dan mungkin memerlukan konfirmasi pengguna
-                    // Untuk saat ini, kita hanya akan memperbarui status tanpa mengembalikan stok
-                    await orderRef.update({ status: newStatus });
-                    alert("Status pemesanan diperbarui.");
-                } else {
-                    // Hanya perbarui status jika tidak ada perubahan stok yang diperlukan
+                } 
+                // Skenario 2: Status berubah menjadi "Dibatalkan" dari "Selesai" (kembalikan stok)
+                else if (newStatus === "Dibatalkan" && oldStatus === "Selesai") {
+                    for (const item of orderItems) {
+                        const itemRef = db.collection("office_supplies").doc(item.itemId);
+                        const itemDoc = await itemRef.get();
+                        if (itemDoc.exists) {
+                            const currentStock = itemDoc.data().stock;
+                            const newStock = currentStock + item.quantity; // Tambahkan kembali stok
+                            batch.update(itemRef, { stock: newStock });
+                        } else {
+                            console.warn(`Item with ID ${item.itemId} not found in office_supplies.`);
+                        }
+                    }
+                    batch.update(orderRef, { status: newStatus });
+                    await batch.commit();
+                    alert("Status pemesanan diperbarui dan stok barang berhasil dikembalikan!");
+                    await loadItems(); // Muat ulang daftar barang untuk memperbarui tampilan stok
+                }
+                // Skenario 3: Status berubah dari "Dibatalkan" ke "Selesai" (kurangi stok lagi)
+                else if (newStatus === "Selesai" && oldStatus === "Dibatalkan") {
+                     for (const item of orderItems) {
+                        const itemRef = db.collection("office_supplies").doc(item.itemId);
+                        const itemDoc = await itemRef.get();
+                        if (itemDoc.exists) {
+                            const currentStock = itemDoc.data().stock;
+                            const newStock = currentStock - item.quantity;
+
+                            if (newStock < 0) {
+                                alert(`Gagal memperbarui stok untuk ${item.name}. Stok tidak mencukupi.`);
+                                return; 
+                            }
+                            batch.update(itemRef, { stock: newStock });
+                        } else {
+                            console.warn(`Item with ID ${item.itemId} not found in office_supplies.`);
+                        }
+                    }
+                    batch.update(orderRef, { status: newStatus });
+                    await batch.commit();
+                    alert("Status pemesanan diperbarui dan stok barang berhasil dikurangi!");
+                    await loadItems(); // Muat ulang daftar barang untuk memperbarui tampilan stok
+                }
+                // Skenario 4: Perubahan status lainnya (tidak mempengaruhi stok)
+                else {
                     await orderRef.update({ status: newStatus });
                     alert("Status pemesanan diperbarui.");
                 }
