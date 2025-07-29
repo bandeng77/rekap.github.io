@@ -413,32 +413,26 @@
 
         // Variabel untuk Pagination
         let currentPage = 1;
-        const itemsPerPage = 6; // Jumlah item per halaman
-        let allItems = []; // Menyimpan semua item dari Firestore
-        let filteredItems = []; // Menyimpan item setelah filter/pencarian
-        let notifications = []; // Menyimpan notifikasi
+        const itemsPerPage = 6;
+        let allItems = [];
+        let filteredItems = [];
+        let notifications = [];
 
         // Variabel untuk Kalender dan Pemesanan
         let currentCalendarDate = new Date();
-        let ordersData = {}; // Akan menyimpan data pemesanan dari Firestore (dari koleksi 'orders')
-
-        // Variabel untuk mode Guest
-        let isGuestMode = false; // Defaultnya bukan guest mode
+        let ordersData = {};
 
         // --- Proteksi Rute (Redirect ke Login jika belum login) ---
         auth.onAuthStateChanged(user => {
-            // Jika user tidak login DAN BUKAN guest mode, redirect ke login page
-            if (!user && !isGuestMode) {
+            if (!user) {
                 window.location.href = 'login.html';
             }
-            // Jika user sudah login atau ini adalah guest mode, biarkan halaman dashboard dimuat
         });
 
         // --- Handle Logout ---
         logoutButton.addEventListener('click', async () => {
             try {
                 await auth.signOut();
-                // Redirect to login page after successful logout
                 window.location.href = 'login.html';
             } catch (error) {
                 console.error("Logout Error:", error);
@@ -449,7 +443,6 @@
         // --- Fungsi Utilitas ---
         function formatDate(date) {
             if (!date) return '-';
-            // Firebase Timestamp to Date object
             const d = date.toDate ? date.toDate() : new Date(date);
             return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
         }
@@ -487,7 +480,7 @@
 
         // --- Fungsi Notifikasi ---
         function generateNotifications() {
-            notifications = []; // Reset notifikasi
+            notifications = [];
             const lowStockCount = parseInt(lowStockItemsElement.textContent);
             const outOfStockCount = parseInt(outOfStockItemsElement.textContent);
 
@@ -551,12 +544,7 @@
 
         // --- Fungsi CRUD Firebase (office_supplies) ---
 
-        // CREATE: Menambahkan item baru (Hanya untuk Admin)
         async function addItem() {
-            if (isGuestMode) {
-                alert("Anda tidak memiliki izin untuk menambah barang dalam mode tamu.");
-                return;
-            }
             const itemName = prompt("Masukkan nama barang:");
             if (!itemName) {
                 alert("Nama barang tidak boleh kosong.");
@@ -588,7 +576,6 @@
             }
         }
 
-        // READ: Memuat semua item dari Firestore
         async function loadItems() {
             itemsTableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">Memuat data...</td></tr>`;
             lowStockCardsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center col-span-full">Memuat data...</p>`;
@@ -608,12 +595,7 @@
             }
         }
 
-        // UPDATE: Mengedit item (Hanya untuk Admin)
         async function editItem(id) {
-            if (isGuestMode) {
-                alert("Anda tidak memiliki izin untuk mengedit barang dalam mode tamu.");
-                return;
-            }
             const itemToEdit = allItems.find(item => item.id === id);
             if (!itemToEdit) {
                 alert("Item tidak ditemukan!");
@@ -656,12 +638,7 @@
             }
         }
 
-        // DELETE: Menghapus item (Hanya untuk Admin)
         async function deleteItem(id) {
-            if (isGuestMode) {
-                alert("Anda tidak memiliki izin untuk menghapus barang dalam mode tamu.");
-                return;
-            }
             if (confirm("Apakah Anda yakin ingin menghapus item ini?")) {
                 try {
                     await db.collection("office_supplies").doc(id).delete();
@@ -676,7 +653,6 @@
 
         // --- Fungsi Tampilan ---
 
-        // Menampilkan item ke tabel
         function displayItems(items) {
             itemsTableBody.innerHTML = '';
             if (items.length === 0) {
@@ -694,17 +670,6 @@
                 row.className = 'hover:bg-gray-50';
                 const stockPercentage = (item.stock / item.maxStock) * 100;
                 const stockColor = stockPercentage <= 15 ? 'red' : (stockPercentage <= 50 ? 'yellow' : 'green');
-
-                // Bagian Aksi (Action) - Disembunyikan untuk Guest
-                let actionButtons = '';
-                if (!isGuestMode) {
-                    actionButtons = `
-                        <button class="edit-btn text-indigo-600 hover:text-indigo-900 mr-3" data-id="${item.id}">Edit</button>
-                        <button class="delete-btn text-red-600 hover:text-red-900" data-id="${item.id}">Hapus</button>
-                    `;
-                } else {
-                    actionButtons = `<span class="text-gray-400 text-sm">Tidak Tersedia</span>`; // Placeholder untuk guest
-                }
 
                 row.innerHTML = `
                     <td>
@@ -732,26 +697,23 @@
                         ${formatDate(item.lastPurchased)}
                     </td>
                     <td class="text-sm font-medium text-center">
-                        ${actionButtons}
+                        <button class="edit-btn text-indigo-600 hover:text-indigo-900 mr-3" data-id="${item.id}">Edit</button>
+                        <button class="delete-btn text-red-600 hover:text-red-900" data-id="${item.id}">Hapus</button>
                     </td>
                 `;
                 itemsTableBody.appendChild(row);
             });
 
-            // Tambahkan event listener hanya jika BUKAN guest mode
-            if (!isGuestMode) {
-                document.querySelectorAll('.edit-btn').forEach(button => {
-                    button.onclick = () => editItem(button.dataset.id);
-                });
-                document.querySelectorAll('.delete-btn').forEach(button => {
-                    button.onclick = () => deleteItem(button.dataset.id);
-                });
-            }
+            document.querySelectorAll('.edit-btn').forEach(button => {
+                button.onclick = () => editItem(button.dataset.id);
+            });
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.onclick = () => deleteItem(button.dataset.id);
+            });
 
             updatePagination(items.length);
         }
 
-        // Memfilter dan menampilkan item berdasarkan pencarian
         function filterAndDisplayItems() {
             const searchTerm = searchInput.value.toLowerCase();
             filteredItems = allItems.filter(item => 
@@ -763,7 +725,6 @@
             displayItems(filteredItems);
         }
 
-        // Memperbarui kartu ringkasan
         function updateSummaryCards() {
             totalItemsElement.textContent = allItems.length;
             
@@ -781,7 +742,6 @@
             outOfStockItemsElement.textContent = outOfStockCount;
         }
 
-        // Memuat dan menampilkan item stok rendah
         function loadLowStockItems() {
             lowStockCardsContainer.innerHTML = '';
             const lowStockItems = allItems.filter(item => (item.stock / item.maxStock) * 100 <= 50);
@@ -857,7 +817,6 @@
 
         // --- Fungsi Kalender dan Pemesanan ---
 
-        // Fungsi untuk memuat pemesanan dari Firestore
         async function loadOrders() {
             try {
                 const snapshot = await db.collection("orders").get();
@@ -945,23 +904,14 @@
                         ? order.items.map(item => `${item.name} (${item.quantity})`).join(', ')
                         : 'Tidak ada barang';
 
-                    let statusControlHtml = '';
-                    if (!isGuestMode) { // Admin: dropdown untuk mengubah status
-                        statusControlHtml = `
-                            <select class="order-status-select px-2 py-1 rounded-full text-xs bg-white border ${getStatusColorClass(order.status)}" data-order-id="${order.id}">
-                                <option value="Baru" ${order.status === 'Baru' ? 'selected' : ''}>Baru</option>
-                                <option value="Diproses" ${order.status === 'Diproses' ? 'selected' : ''}>Diproses</option>
-                                <option value="Selesai" ${order.status === 'Selesai' ? 'selected' : ''}>Selesai</option>
-                                <option value="Dibatalkan" ${order.status === 'Dibatalkan' ? 'selected' : ''}>Dibatalkan</option>
-                            </select>
-                        `;
-                    } else { // Guest: hanya menampilkan status sebagai teks
-                        statusControlHtml = `
-                            <span class="px-2 py-1 rounded-full text-xs bg-white border ${getStatusColorClass(order.status)}">
-                                ${order.status}
-                            </span>
-                        `;
-                    }
+                    const statusControlHtml = `
+                        <select class="order-status-select px-2 py-1 rounded-full text-xs bg-white border ${getStatusColorClass(order.status)}" data-order-id="${order.id}">
+                            <option value="Baru" ${order.status === 'Baru' ? 'selected' : ''}>Baru</option>
+                            <option value="Diproses" ${order.status === 'Diproses' ? 'selected' : ''}>Diproses</option>
+                            <option value="Selesai" ${order.status === 'Selesai' ? 'selected' : ''}>Selesai</option>
+                            <option value="Dibatalkan" ${order.status === 'Dibatalkan' ? 'selected' : ''}>Dibatalkan</option>
+                        </select>
+                    `;
 
                     orderDiv.innerHTML = `
                         <div class="mr-3 mt-1">
@@ -977,20 +927,16 @@
                 });
                 todayOrdersElement.textContent = ordersForDay.length;
 
-                // Tambahkan event listener untuk perubahan status hanya jika BUKAN guest mode
-                if (!isGuestMode) {
-                    document.querySelectorAll('.order-status-select').forEach(select => {
-                        select.addEventListener('change', async (event) => {
-                            const orderId = event.target.dataset.orderId;
-                            const newStatus = event.target.value;
-                            await updateOrderStatus(orderId, newStatus);
-                        });
+                document.querySelectorAll('.order-status-select').forEach(select => {
+                    select.addEventListener('change', async (event) => {
+                        const orderId = event.target.dataset.orderId;
+                        const newStatus = event.target.value;
+                        await updateOrderStatus(orderId, newStatus);
                     });
-                }
+                });
             }
         }
 
-        // Fungsi untuk menambahkan pemesanan baru (dengan modal interaktif)
         async function addOrder() {
             const selectedDayElement = document.querySelector('.calendar-day.selected');
             if (!selectedDayElement) {
@@ -1043,7 +989,7 @@
                 itemRow.innerHTML = `
                     <select class="item-select shadow border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline flex-grow" required>
                         <option value="">Pilih Barang</option>
-                        ${allItems.map(i => `<option value="${i.id}" ${item && item.id === i.id ? 'selected' : ''}>${i.name} (Stok: ${i.stock})</option>`).join('')}
+                        ${allItems.map(i => `<option value="${i.id}">${i.name} (Stok: ${i.stock})</option>`).join('')}
                     </select>
                     <input type="number" class="quantity-input shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-20" value="${quantity}" min="1" required>
                     <button type="button" class="remove-item-btn text-red-500 hover:text-red-700"><i class="fas fa-times"></i></button>
@@ -1061,12 +1007,32 @@
                 updateSelectedOrderItems();
             }
 
+            function updateSelectedOrderItems() {
+                selectedOrderItems = [];
+                orderItemsContainer.querySelectorAll('.item-select').forEach(select => {
+                    const itemId = select.value;
+                    const quantity = parseInt(select.closest('.flex').querySelector('.quantity-input').value);
+                    if (itemId && !isNaN(quantity) && quantity > 0) {
+                        const itemData = allItems.find(item => item.id === itemId);
+                        if (itemData) {
+                            selectedOrderItems.push({
+                                id: itemId,
+                                name: itemData.name,
+                                quantity: quantity,
+                                currentStock: itemData.stock
+                            });
+                        }
+                    }
+                });
+            }
+
             addOrderItemRow();
 
             addItemToOrderButton.addEventListener('click', addOrderItemRow);
 
+            // Perbaikan tombol Batal
             cancelOrderBtn.addEventListener('click', () => {
-                orderModal.remove();
+                orderModal.remove(); // Ini akan menghapus modal dari DOM
             });
 
             newOrderForm.addEventListener('submit', async (e) => {
@@ -1111,12 +1077,7 @@
             });
         }
 
-        // Fungsi untuk memperbarui status pemesanan dan mengurangi/mengembalikan stok (Hanya untuk Admin)
         async function updateOrderStatus(orderId, newStatus) {
-            if (isGuestMode) {
-                alert("Anda tidak memiliki izin untuk mengubah status pemesanan dalam mode tamu.");
-                return;
-            }
             try {
                 const orderRef = db.collection("orders").doc(orderId);
                 const orderDoc = await orderRef.get();
@@ -1204,38 +1165,20 @@
 
         // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', function() {
-            // Deteksi mode guest dari URL
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('mode') === 'guest') {
-                isGuestMode = true;
-                console.log("Guest Mode Activated!");
-                // Sembunyikan elemen-elemen yang tidak relevan untuk guest
-                document.getElementById('addButton').style.display = 'none';
-                document.getElementById('notificationButton').style.display = 'none';
-                document.getElementById('logoutButton').style.display = 'none';
-                // Sembunyikan filter jika tidak diperlukan untuk guest
-                document.querySelector('.flex.space-x-2 button').style.display = 'none'; // Tombol Filter
-                document.getElementById('searchItem').placeholder = 'Cari barang (hanya lihat)'; // Ubah placeholder
-            }
-
             loadItems();
             loadOrders();
 
-            // Event listener untuk tombol "Tambah Barang" (hanya aktif untuk admin)
             addButton.addEventListener('click', addItem);
             searchInput.addEventListener('input', filterAndDisplayItems);
             addOrderButton.addEventListener('click', addOrder);
             
-            // Notifikasi Event Listeners (disembunyikan untuk guest)
-            if (!isGuestMode) {
-                notificationButton.addEventListener('click', toggleNotificationPanel);
-                markAllReadButton.addEventListener('click', markAllNotificationsAsRead);
-                document.addEventListener('click', function(event) {
-                    if (!notificationPanel.contains(event.target) && !notificationButton.contains(event.target)) {
-                        notificationPanel.classList.remove('show');
-                    }
-                });
-            }
+            notificationButton.addEventListener('click', toggleNotificationPanel);
+            markAllReadButton.addEventListener('click', markAllNotificationsAsRead);
+            document.addEventListener('click', function(event) {
+                if (!notificationPanel.contains(event.target) && !notificationButton.contains(event.target)) {
+                    notificationPanel.classList.remove('show');
+                }
+            });
 
             document.getElementById('prevPage').addEventListener('click', () => {
                 if (currentPage > 1) {
