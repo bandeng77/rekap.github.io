@@ -51,7 +51,20 @@
                 <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-md transition duration-200">
                     Masuk
                 </button>
-            </p>
+            </form>
+
+            <div class="relative flex items-center justify-center my-6">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative bg-white px-4 text-sm text-gray-500 rounded-full">
+                    Atau
+                </div>
+            </div>
+
+            <button id="guestLoginBtn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-md transition duration-200">
+                Masuk sebagai Tamu
+            </button>
         </div>
     </div>
 
@@ -59,12 +72,12 @@
         // Firebase configuration
         // GANTI DENGAN KONFIGURASI PROYEK FIREBASE ANDA
         const firebaseConfig = {
-                  apiKey: "AIzaSyCZyx64uxbS12698ENLJMCAmrJmq5HIw8w",
-                  authDomain: "inventoryefk.firebaseapp.com",
-                  projectId: "inventoryefk",
-                  storageBucket: "inventoryefk.firebasestorage.app",
-                  messagingSenderId: "734937154821",
-                  appId: "1:734937154821:web:63c0159cc62918a33f236c"
+  apiKey: "AIzaSyCZyx64uxbS12698ENLJMCAmrJmq5HIw8w",
+  authDomain: "inventoryefk.firebaseapp.com",
+  projectId: "inventoryefk",
+  storageBucket: "inventoryefk.firebasestorage.app",
+  messagingSenderId: "734937154821",
+  appId: "1:734937154821:web:63c0159cc62918a33f236c"
         };
 
         // Initialize Firebase
@@ -75,6 +88,7 @@
         const loginForm = document.getElementById('loginForm');
         const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
+        const guestLoginBtn = document.getElementById('guestLoginBtn');
         const errorMessageDiv = document.getElementById('errorMessage');
         const errorTextSpan = document.getElementById('errorText');
         const registerLink = document.getElementById('registerLink');
@@ -98,13 +112,6 @@
 
             const email = emailInput.value;
             const password = passwordInput.value;
-
-            // Optional: Implement email domain restriction here
-            // const allowedDomain = "@yourcompany.com"; // Ganti dengan domain email Anda
-            // if (!email.endsWith(allowedDomain)) {
-            //     showError("Hanya email dengan domain " + allowedDomain + " yang diizinkan.");
-            //     return;
-            // }
 
             try {
                 await auth.signInWithEmailAndPassword(email, password);
@@ -132,6 +139,12 @@
                 showError(message);
                 console.error("Login Error:", error);
             }
+        });
+
+        // Handle Guest Login
+        guestLoginBtn.addEventListener('click', () => {
+            // Redirect to dashboard as guest
+            window.location.href = 'rekap.html?guest=true';
         });
 
         // Handle Register Link (for demonstration, you might create a separate register.html)
