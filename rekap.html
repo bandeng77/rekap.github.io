@@ -1162,38 +1162,32 @@
             }
         }
 
-        // --- Fungsi Export ke Excel ---
-        function exportTableToExcel(tableID, filename = 'data_barang_atk') {
-            const table = document.getElementById(tableID);
-            if (!table) {
-                console.error("Table with ID " + tableID + " not found.");
+        // --- Fungsi Export ke Excel (Diperbarui untuk mengekspor semua data) ---
+        function exportAllItemsToExcel(filename = 'data_barang_atk_lengkap') {
+            if (allItems.length === 0) {
+                alert("Tidak ada data barang untuk diekspor.");
                 return;
             }
 
-            // Clone the table to remove the "Aksi" column before export
-            const clonedTable = table.cloneNode(true);
-            const headerRow = clonedTable.querySelector('thead tr');
-            const bodyRows = clonedTable.querySelectorAll('tbody tr');
+            // Siapkan header kolom
+            const headers = ["Nama Barang", "Kategori", "Stok Saat Ini", "Stok Maksimal", "Terakhir Dibeli"];
 
-            // Remove the "Aksi" header
-            if (headerRow) {
-                const actionHeader = headerRow.children[4]; // Assuming "Aksi" is the 5th column (index 4)
-                if (actionHeader) {
-                    actionHeader.remove();
-                }
-            }
+            // Siapkan data untuk lembar kerja
+            const data = [headers]; // Baris pertama adalah header
 
-            // Remove the "Aksi" column from each body row
-            bodyRows.forEach(row => {
-                const actionCell = row.children[4]; // Assuming "Aksi" is the 5th column (index 4)
-                if (actionCell) {
-                    actionCell.remove();
-                }
+            allItems.forEach(item => {
+                data.push([
+                    item.name,
+                    item.category,
+                    item.stock,
+                    item.maxStock,
+                    formatDate(item.lastPurchased) // Gunakan fungsi formatDate yang sudah ada
+                ]);
             });
 
-            const ws = XLSX.utils.table_to_sheet(clonedTable);
+            const ws = XLSX.utils.aoa_to_sheet(data); // aoa_to_sheet untuk Array of Arrays
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Data Barang");
+            XLSX.utils.book_append_sheet(wb, ws, "Data Barang Lengkap");
             XLSX.writeFile(wb, `${filename}.xlsx`);
         }
 
@@ -1253,9 +1247,9 @@
                 });
             });
 
-            // New event listener for export button
+            // Event listener for export button (updated to use new function)
             exportExcelButton.addEventListener('click', () => {
-                exportTableToExcel('itemsTable', 'data_barang_atk');
+                exportAllItemsToExcel('data_barang_atk_lengkap');
             });
         });
     </script>
