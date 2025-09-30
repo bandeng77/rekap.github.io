@@ -277,6 +277,10 @@
                         <button id="addOrderButton" class="mt-4 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 py-2 rounded-md text-sm font-medium flex items-center justify-center">
                             <i class="fas fa-plus mr-2"></i>Tambah Pemesanan
                         </button>
+                        <!-- NEW: Tombol Export Pemesanan Bulanan -->
+                        <button id="exportMonthlyOrdersButton" class="mt-2 w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md text-sm font-medium flex items-center justify-center">
+                            <i class="fas fa-file-excel mr-2"></i>Export Pemesanan Bulan Ini
+                        </button>
                     </div>
                 </div>
                 
@@ -411,7 +415,8 @@
         const notificationContent = document.getElementById('notificationContent');
         const markAllReadButton = document.getElementById('markAllRead');
         const logoutButton = document.getElementById('logoutButton');
-        const exportExcelButton = document.getElementById('exportExcelButton'); // New element
+        const exportExcelButton = document.getElementById('exportExcelButton');
+        const exportMonthlyOrdersButton = document.getElementById('exportMonthlyOrdersButton'); // NEW
 
         // Variabel untuk Pagination
         let currentPage = 1;
@@ -1191,6 +1196,55 @@
             XLSX.writeFile(wb, `${filename}.xlsx`);
         }
 
+        // NEW: Fungsi untuk mengekspor pemesanan bulanan
+        function exportMonthlyOrdersToExcel() {
+            const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+            const currentMonth = currentCalendarDate.getMonth();
+            const currentYear = currentCalendarDate.getFullYear();
+            const monthName = monthNames[currentMonth];
+
+            const ordersForMonth = [];
+            // Iterasi melalui semua tanggal di bulan yang sedang ditampilkan
+            for (let day = 1; day <= new Date(currentYear, currentMonth + 1, 0).getDate(); day++) {
+                const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                if (ordersData[dateString]) {
+                    ordersForMonth.push(...ordersData[dateString]);
+                }
+            }
+
+            if (ordersForMonth.length === 0) {
+                alert(`Tidak ada data pemesanan untuk bulan ${monthName} ${currentYear} untuk diekspor.`);
+                return;
+            }
+
+            const headers = ["Tanggal Pemesanan", "Nama Pemesan", "Departemen", "Daftar Barang (Nama - Jumlah)", "Status"];
+            const data = [headers];
+
+            ordersForMonth.sort((a, b) => a.orderDate.toDate() - b.orderDate.toDate()); // Urutkan berdasarkan tanggal
+
+            ordersForMonth.forEach(order => {
+                const orderDate = order.orderDate.toDate();
+                const formattedDate = orderDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                
+                const itemsDisplay = order.items && Array.isArray(order.items)
+                    ? order.items.map(item => `${item.name} (${item.quantity})`).join('; ')
+                    : 'Tidak ada barang';
+
+                data.push([
+                    formattedDate,
+                    order.customerName,
+                    order.department,
+                    itemsDisplay,
+                    order.status
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, `Pemesanan ${monthName} ${currentYear}`);
+            XLSX.writeFile(wb, `data_pemesanan_${monthName.toLowerCase()}_${currentYear}.xlsx`);
+        }
+
 
         // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', function() {
@@ -1251,6 +1305,9 @@
             exportExcelButton.addEventListener('click', () => {
                 exportAllItemsToExcel('data_barang_atk_lengkap');
             });
+
+            // NEW: Event listener for monthly orders export button
+            exportMonthlyOrdersButton.addEventListener('click', exportMonthlyOrdersToExcel);
         });
     </script>
 </body>
