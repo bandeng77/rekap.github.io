@@ -79,7 +79,8 @@
             }
 
             try {
-                await db.collection("atk_requests").add({
+                // Simpan permintaan ke koleksi atk_requests (seperti sebelumnya)
+                const requestRef = await db.collection("atk_requests").add({
                     requesterName: requesterName,
                     department: requesterDepartment,
                     itemName: itemName,
@@ -88,6 +89,17 @@
                     status: "Pending", // Status awal permintaan
                     requestDate: firebase.firestore.Timestamp.now()
                 });
+
+                // Tambahkan notifikasi ke koleksi notifications untuk rekap.html
+                await db.collection("notifications").add({
+                    type: "new_request", // Tipe notifikasi untuk filtering
+                    message: `Permintaan ATK baru dari ${requesterName} (${requesterDepartment}): ${itemQuantity} x ${itemName}`,
+                    requestId: requestRef.id, // Referensi ke ID permintaan untuk tracking
+                    isRead: false, // Default belum dibaca
+                    timestamp: firebase.firestore.Timestamp.now(),
+                    target: "admin" // Target notifikasi (bisa untuk user tertentu)
+                });
+
                 alert("Permintaan ATK berhasil dikirim! Admin akan segera meninjaunya.");
                 document.getElementById('atkRequestForm').reset(); // Reset form
             } catch (error) {
