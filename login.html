@@ -64,6 +64,10 @@
             <button id="guestLoginBtn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-md transition duration-200">
                 Masuk sebagai Tamu
             </button>
+            <!-- Tambahkan link register jika Anda ingin mengaktifkannya nanti -->
+            <!-- <p class="mt-4 text-sm text-gray-600">
+                Belum punya akun? <a href="#" id="registerLink" class="text-indigo-600 hover:text-indigo-800 font-medium">Daftar di sini</a>
+            </p> -->
         </div>
     </div>
 
@@ -71,104 +75,111 @@
         // Firebase configuration
         // GANTI DENGAN KONFIGURASI PROYEK FIREBASE ANDA
         const firebaseConfig = {
-  apiKey: "AIzaSyCZyx64uxbS12698ENLJMCAmrJmq5HIw8w",
-  authDomain: "inventoryefk.firebaseapp.com",
-  projectId: "inventoryefk",
-  storageBucket: "inventoryefk.firebasestorage.app",
-  messagingSenderId: "734937154821",
-  appId: "1:734937154821:web:63c0159cc62918a33f236c"
+            apiKey: "AIzaSyCZyx64uxbS12698ENLJMCAmrJmq5HIw8w",
+            authDomain: "inventoryefk.firebaseapp.com",
+            projectId: "inventoryefk",
+            storageBucket: "inventoryefk.firebasestorage.app",
+            messagingSenderId: "734937154821",
+            appId: "1:734937154821:web:63c0159cc62918a33f236c"
         };
 
         // Initialize Firebase
         const app = firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
 
-        // DOM Elements
-        const loginForm = document.getElementById('loginForm');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const guestLoginBtn = document.getElementById('guestLoginBtn');
-        const errorMessageDiv = document.getElementById('errorMessage');
-        const errorTextSpan = document.getElementById('errorText');
-        const registerLink = document.getElementById('registerLink');
+        // Pastikan DOM sudah dimuat sebelum mengakses elemen
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM Elements
+            const loginForm = document.getElementById('loginForm');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const guestLoginBtn = document.getElementById('guestLoginBtn');
+            const errorMessageDiv = document.getElementById('errorMessage');
+            const errorTextSpan = document.getElementById('errorText');
+            // const registerLink = document.getElementById('registerLink'); // Dikomentari karena tidak ada di HTML Anda saat ini
 
-        // Function to display error messages
-        function showError(message) {
-            errorTextSpan.textContent = message;
-            errorMessageDiv.classList.remove('hidden');
-        }
-
-        // Function to hide error messages
-        function hideError() {
-            errorMessageDiv.classList.add('hidden');
-            errorTextSpan.textContent = '';
-        }
-
-        // Handle Email/Password Login
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            hideError();
-
-            const email = emailInput.value;
-            const password = passwordInput.value;
-
-            try {
-                await auth.signInWithEmailAndPassword(email, password);
-                // Redirect to dashboard on successful login
-                window.location.href = 'rekap.html';
-            } catch (error) {
-                let message = 'Terjadi kesalahan saat login. Silakan coba lagi.';
-                switch (error.code) {
-                    case 'auth/invalid-email':
-                        message = 'Format email tidak valid.';
-                        break;
-                    case 'auth/user-disabled':
-                        message = 'Akun Anda telah dinonaktifkan.';
-                        break;
-                    case 'auth/user-not-found':
-                    case 'auth/wrong-password':
-                        message = 'Email atau kata sandi salah.';
-                        break;
-                    case 'auth/too-many-requests':
-                        message = 'Terlalu banyak percobaan login. Coba lagi nanti.';
-                        break;
-                    default:
-                        message = error.message;
+            // Function to display error messages
+            function showError(message) {
+                if (errorTextSpan && errorMessageDiv) {
+                    errorTextSpan.textContent = message;
+                    errorMessageDiv.classList.remove('hidden');
                 }
-                showError(message);
-                console.error("Login Error:", error);
             }
-        });
 
-        // Handle Guest Login
-        guestLoginBtn.addEventListener('click', () => {
-            // Redirect to dashboard as guest
-            window.location.href = 'rekap.html?guest=true';
-        });
-
-        // Handle Register Link (for demonstration, you might create a separate register.html)
-        registerLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            alert("Fitur pendaftaran belum tersedia. Silakan hubungi administrator.");
-            // In a real application, you would redirect to a registration page:
-            // window.location.href = 'register.html';
-        });
-
-        // Check if user is already logged in
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                // User is signed in, redirect to dashboard
-                window.location.href = 'rekap.html';
+            // Function to hide error messages
+            function hideError() {
+                if (errorTextSpan && errorMessageDiv) {
+                    errorMessageDiv.classList.add('hidden');
+                    errorTextSpan.textContent = '';
+                }
             }
+
+            // Handle Email/Password Login
+            if (loginForm) { // Pastikan loginForm ada
+                loginForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    hideError();
+
+                    const email = emailInput.value;
+                    const password = passwordInput.value;
+
+                    try {
+                        await auth.signInWithEmailAndPassword(email, password);
+                        // Redirect to dashboard on successful login
+                        // onAuthStateChanged akan menangani redirect ini
+                    } catch (error) {
+                        let message = 'Terjadi kesalahan saat login. Silakan coba lagi.';
+                        switch (error.code) {
+                            case 'auth/invalid-email':
+                                message = 'Format email tidak valid.';
+                                break;
+                            case 'auth/user-disabled':
+                                message = 'Akun Anda telah dinonaktifkan.';
+                                break;
+                            case 'auth/user-not-found':
+                            case 'auth/wrong-password':
+                                message = 'Email atau kata sandi salah.';
+                                break;
+                            case 'auth/too-many-requests':
+                                message = 'Terlalu banyak percobaan login. Coba lagi nanti.';
+                                break;
+                            default:
+                                message = error.message;
+                        }
+                        showError(message);
+                        console.error("Login Error:", error);
+                    }
+                });
+            }
+
+            // Handle Guest Login
+            if (guestLoginBtn) { // Pastikan guestLoginBtn ada
+                guestLoginBtn.addEventListener('click', () => {
+                    // Redirect to guest dashboard page
+                    window.location.href = 'guest_dashboard.html'; // Mengarahkan ke guest_dashboard.html
+                });
+            }
+
+            // Handle Register Link (dikomentari karena tidak ada di HTML Anda saat ini)
+            /*
+            if (registerLink) {
+                registerLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    alert("Fitur pendaftaran belum tersedia. Silakan hubungi administrator.");
+                    // In a real application, you would redirect to a registration page:
+                    // window.location.href = 'register.html';
+                });
+            }
+            */
+
+            // Check if user is already logged in
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    // User is signed in, redirect to dashboard
+                    window.location.href = 'rekap.html'; // Pastikan ini adalah nama file dashboard Anda
+                }
+            });
         });
     </script>
- <script>
-    guestLoginBtn.addEventListener('click', () => {
-        // Redirect to guest dashboard page
-        window.location.href = 'guest_dashboard.html'; // Mengarahkan ke guest_dashboard.html
-    });
-
-</script>
-
 </body>
 </html>
