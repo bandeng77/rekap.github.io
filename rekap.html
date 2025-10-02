@@ -187,7 +187,20 @@
 
             <!-- Dashboard Layout -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Calendar Section -->
+                <!-- NEW: ATK Requests Section - DIPINDAHKAN KE SINI -->
+                <div class="lg:col-span-1"> <!-- Tambahkan lg:col-span-1 agar menempati lebar yang sama dengan kalender -->
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h2 class="text-lg font-semibold text-gray-800">Permintaan ATK Baru</h2>
+                        </div>
+                        <div id="atkRequestsContainer" class="p-6 space-y-4">
+                            <!-- ATK requests will be loaded here dynamically from Firebase -->
+                            <p class="text-sm text-gray-500 text-center">Tidak ada permintaan ATK baru.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calendar Section - SEKARANG DI BAWAH PERMINTAAN ATK -->
                 <div class="lg:col-span-1 bg-white rounded-lg shadow overflow-hidden">
                     <div class="p-6">
                         <div class="flex justify-between items-center mb-6">
@@ -356,17 +369,6 @@
                                     </button>
                                 </nav>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- NEW: ATK Requests Section -->
-                    <div class="mt-6 bg-white rounded-lg shadow overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200">
-                            <h2 class="text-lg font-semibold text-gray-800">Permintaan ATK Baru</h2>
-                        </div>
-                        <div id="atkRequestsContainer" class="p-6 space-y-4">
-                            <!-- ATK requests will be loaded here dynamically from Firebase -->
-                            <p class="text-sm text-gray-500 text-center">Tidak ada permintaan ATK baru.</p>
                         </div>
                     </div>
                 </div>
