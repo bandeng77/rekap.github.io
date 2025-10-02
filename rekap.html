@@ -564,13 +564,18 @@
                     if (notif.type === 'new_request') {
                         notifItem.classList.add('atk-request-notification');
                         notifItem.dataset.requestId = notif.requestId;
-                        notifItem.dataset.notificationId = notif.id; // ID notifikasi dari koleksi 'notifications'
+                        // Gunakan ID notifikasi dari koleksi 'notifications' jika ada,
+                        // atau ID permintaan ATK jika notifikasi ini dibuat langsung dari loadAtkRequests
+                        notifItem.dataset.notificationId = notif.id || notif.requestId;
                     } else {
+                        // Untuk notifikasi non-ATK (misal stok rendah), tandai sebagai dibaca di Firestore
                         notifItem.addEventListener('click', async (e) => {
                             e.preventDefault();
                             if (notif.id && notif.source === 'notifications_collection') {
                                 await db.collection("notifications").doc(notif.id).update({ isRead: true });
                             }
+                            // Hapus notifikasi dari array lokal setelah diklik
+                            notifications = notifications.filter(n => n.id !== notif.id || n.source !== notif.source);
                             updateNotificationDisplay();
                         });
                     }
@@ -601,27 +606,35 @@
                 const atkRequestRef = db.collection("atk_requests").doc(notif.requestId);
                 batch.update(atkRequestRef, { status: 'Reviewed', reviewedAt: firebase.firestore.Timestamp.now() });
                 // Juga tandai notifikasi terkait di koleksi 'notifications' sebagai dibaca
-                const notifRef = db.collection("notifications").doc(notif.id);
-                batch.update(notifRef, { isRead: true });
+                // Ini penting agar notifikasi tidak muncul lagi setelah di-mark as read
+                if (notif.id) { // Pastikan notif.id ada (dari koleksi notifications)
+                    const notifRef = db.collection("notifications").doc(notif.id);
+                    batch.update(notifRef, { isRead: true });
+                }
             });
 
             await batch.commit();
 
-            // Tandai notifikasi lokal (misalnya dari stok rendah/habis) sebagai dibaca
-            notifications.forEach(notif => notif.isRead = true);
-
+            // Hapus semua notifikasi dari array lokal setelah dibaca/ditinjau
+            notifications = [];
             updateNotificationDisplay();
             notificationPanel.classList.remove('show');
             loadAtkRequests(); // Muat ulang permintaan ATK untuk memperbarui status di UI
         }
 
         // --- Listener Real-time untuk Notifikasi dari Koleksi 'notifications' ---
+        // Listener ini akan menangkap notifikasi yang dibuat oleh guest.html
         db.collection("notifications").where("isRead", "==", false).orderBy("timestamp", "desc")
             .onSnapshot((snapshot) => {
                 snapshot.docChanges().forEach((change) => {
                     const notifData = { id: change.doc.id, ...change.doc.data(), source: 'notifications_collection' };
+                    // Pastikan notifData memiliki semua properti yang dibutuhkan, terutama type dan requestId
                     if (change.type === "added") {
-                        notifications.unshift(notifData); // Tambahkan ke awal agar yang terbaru di atas
+                        // Cek apakah notifikasi ini sudah ada di array (misal dari loadAtkRequests)
+                        const existingIndex = notifications.findIndex(n => n.id === notifData.id && n.source === notifData.source);
+                        if (existingIndex === -1) {
+                            notifications.unshift(notifData); // Tambahkan ke awal agar yang terbaru di atas
+                        }
                     } else if (change.type === "modified") {
                         const index = notifications.findIndex(n => n.id === notifData.id && n.source === notifData.source);
                         if (index !== -1) {
@@ -631,7 +644,9 @@
                         notifications = notifications.filter(n => n.id !== notifData.id || n.source !== notifData.source);
                     }
                 });
-                updateNotificationDisplay(); // Perbarui tampilan notifikasi
+                // Setelah memproses notifikasi dari koleksi 'notifications',
+                // panggil loadAtkRequests untuk memastikan permintaan ATK yang pending juga diperbarui
+                loadAtkRequests(); // Ini akan memicu updateNotificationDisplay() lagi
             }, (error) => {
                 console.error("Error listening to notifications collection:", error);
             });
@@ -1371,24 +1386,27 @@
         // NEW: Fungsi untuk memuat permintaan ATK (sekarang hanya untuk notifikasi)
         async function loadAtkRequests() {
             try {
+                // Ambil semua permintaan ATK yang statusnya 'Pending'
                 const snapshot = await db.collection("atk_requests").where("status", "==", "Pending").orderBy("requestDate", "desc").get();
-                const pendingRequests = snapshot.docs.map(doc => ({
-                    id: doc.id,
+                const pendingAtkRequests = snapshot.docs.map(doc => ({
+                    id: doc.id, // ID dokumen atk_requests
                     ...doc.data(),
                     type: 'new_request', // Tambahkan tipe untuk identifikasi
                     message: `Permintaan ATK dari ${doc.data().requesterName}: ${doc.data().itemName} (${doc.data().quantity})`,
                     requestId: doc.id, // ID permintaan ATK
                     isRead: false, // Anggap belum dibaca di panel notifikasi
-                    source: 'atk_request_notification' // Sumber notifikasi
+                    source: 'atk_request_notification', // Sumber notifikasi
+                    timestamp: doc.data().requestDate // Gunakan requestDate sebagai timestamp
                 }));
 
                 // Hapus notifikasi ATK lama dari array global
                 notifications = notifications.filter(notif => notif.source !== 'atk_request_notification');
+
                 // Tambahkan permintaan ATK pending ke array global
-                notifications.push(...pendingRequests);
+                notifications.push(...pendingAtkRequests);
 
                 // Urutkan notifikasi berdasarkan timestamp (terbaru di atas)
-                notifications.sort((a, b) => (b.timestamp?.toDate() || b.requestDate?.toDate() || 0) - (a.timestamp?.toDate() || a.requestDate?.toDate() || 0));
+                notifications.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
                 updateNotificationDisplay();
             } catch (error) {
                 console.error("Error loading ATK requests for notifications:", error);
@@ -1458,7 +1476,9 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadItems();
             loadOrders();
-            loadAtkRequests(); // Panggil ini untuk memuat permintaan ATK saat dashboard dimuat
+            // loadAtkRequests() dipanggil di dalam listener notifications untuk memastikan sinkronisasi
+            // dan juga dipanggil di DOMContentLoaded untuk inisialisasi awal
+            loadAtkRequests();
 
             addButton.addEventListener('click', addItem);
             searchInput.addEventListener('input', filterAndDisplayItems);
@@ -1467,7 +1487,9 @@
             notificationButton.addEventListener('click', toggleNotificationPanel);
             markAllReadButton.addEventListener('click', markAllNotificationsAsRead);
             document.addEventListener('click', function(event) {
-                if (!notificationPanel.contains(event.target) && !notificationButton.contains(event.target) && !atkRequestDetailModal.contains(event.target)) {
+                // Tutup panel notifikasi jika klik di luar panel dan bukan tombol notifikasi
+                // Juga pastikan tidak menutup modal permintaan ATK
+                if (!notificationPanel.contains(event.target) && !notificationButton.contains(event.target) && atkRequestDetailModal.classList.contains('hidden')) {
                     notificationPanel.classList.remove('show');
                 }
             });
