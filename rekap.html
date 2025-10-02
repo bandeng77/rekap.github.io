@@ -74,7 +74,7 @@
         }
 
         .medium-stock {
-            border-left: 4px solid var(--warning); /* Perbaikan: sebelumnya 44px */
+            border-left: 4px solid var(--warning);
         }
 
         .high-stock {
@@ -422,7 +422,7 @@
         // Firebase configuration
         // GANTI DENGAN KONFIGURASI PROYEK FIREBASE ANDA
         const firebaseConfig = {
-                  apiKey: "AIzaSyCZyx64uxbS12698ENLJMCAmrJmq5HIw8w",
+                  apiKey: "AIzaSyCZyx64uxbS12698ENLJMCAmrJmq5HIw",
                   authDomain: "inventoryefk.firebaseapp.com",
                   projectId: "inventoryefk",
                   storageBucket: "inventoryefk.firebasestorage.app",
@@ -466,7 +466,7 @@
 
         // Variabel untuk Pagination Stok Rendah
         let lowStockCurrentPage = 1;
-        const lowStockItemsPerPage = 2; // Hanya tampilkan 2 baris
+        const lowStockItemsPerPage = 3; // Hanya tampilkan 3 baris
         let allLowStockItems = []; // Menyimpan semua item stok rendah untuk paginasi
 
         let notifications = []; // Ini akan menyimpan notifikasi dari berbagai sumber
@@ -628,10 +628,11 @@
                                 message: `Permintaan ATK baru dari ${requestData.requesterName} untuk ${requestData.itemName} (${requestData.quantity})`,
                                 isRead: false,
                                 source: 'atk_requests_notification',
-                                timestamp: requestData.requestDate
+                                timestamp: requestData.requestDate // Pastikan ada timestamp
                             });
                         }
                     } else if (change.type === "modified") {
+                        // Jika status permintaan berubah dari Pending, hapus notifikasinya
                         if (requestData.status !== "Pending") {
                             notifications = notifications.filter(notif => !(notif.id === requestData.id && notif.source === 'atk_requests_notification'));
                         }
@@ -1401,30 +1402,27 @@
             XLSX.writeFile(wb, `data_pemesanan_${monthName.toLowerCase()}_${currentYear}.xlsx`);
         }
 
-        // NEW: Fungsi untuk memuat permintaan ATK
-        async function loadAtkRequests() {
-            atkRequestsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center">Memuat permintaan...</p>`;
-            try {
-                const snapshot = await db.collection("atk_requests").orderBy("requestDate", "desc").get();
-                const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                displayAtkRequests(requests);
-            } catch (error) {
-                console.error("Error loading ATK requests:", error);
-                atkRequestsContainer.innerHTML = `<p class="text-sm text-red-500 text-center">Gagal memuat permintaan ATK.</p>`;
-            }
+        // NEW: Fungsi untuk memuat permintaan ATK (sekarang realtime)
+        function setupAtkRequestsListener() {
+            db.collection("atk_requests").where("status", "==", "Pending").orderBy("requestDate", "desc")
+                .onSnapshot((snapshot) => {
+                    const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    displayAtkRequests(requests);
+                }, (error) => {
+                    console.error("Error listening to ATK requests:", error);
+                    atkRequestsContainer.innerHTML = `<p class="text-sm text-red-500 text-center">Gagal memuat permintaan ATK secara realtime.</p>`;
+                });
         }
 
         // NEW: Fungsi untuk menampilkan permintaan ATK
         function displayAtkRequests(requests) {
             atkRequestsContainer.innerHTML = '';
-            const pendingRequests = requests.filter(req => req.status === "Pending");
-
-            if (pendingRequests.length === 0) {
+            if (requests.length === 0) {
                 atkRequestsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center">Tidak ada permintaan ATK baru.</p>`;
                 return;
             }
 
-            pendingRequests.forEach(request => {
+            requests.forEach(request => {
                 const requestDiv = document.createElement('div');
                 requestDiv.className = 'bg-gray-50 p-4 rounded-lg shadow-sm flex items-start justify-between';
                 requestDiv.innerHTML = `
@@ -1458,7 +1456,7 @@
                     reviewedAt: firebase.firestore.Timestamp.now()
                 });
                 alert(`Permintaan ATK berhasil ditandai sebagai ${newStatus}.`);
-                loadAtkRequests();
+                // Tidak perlu memanggil loadAtkRequests() lagi karena listener realtime akan menanganinya
             } catch (error) {
                 console.error("Error updating ATK request status:", error);
                 alert("Gagal memperbarui status permintaan ATK: " + error.message);
@@ -1469,7 +1467,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadItems();
             loadOrders();
-            loadAtkRequests();
+            setupAtkRequestsListener(); // Panggil listener realtime saat dashboard dimuat
 
             addButton.addEventListener('click', addItem);
             searchInput.addEventListener('input', filterAndDisplayItems);
