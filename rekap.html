@@ -136,6 +136,30 @@
         .min-w-full td:nth-child(5) {
             white-space: nowrap; /* Pastikan tombol tidak pecah baris */
         }
+
+        /* Gaya untuk Modal Permintaan ATK */
+        .atk-request-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .atk-request-modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -380,19 +404,25 @@
                         </div>
                     </div>
 
-                    <!-- NEW: ATK Requests Section -->
-                    <div class="mt-6 bg-white rounded-lg shadow overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200">
-                            <h2 class="text-lg font-semibold text-gray-800">Permintaan ATK Baru</h2>
-                        </div>
-                        <div id="atkRequestsContainer" class="p-6 space-y-4">
-                            <!-- ATK requests will be loaded here dynamically from Firebase -->
-                            <p class="text-sm text-gray-500 text-center">Tidak ada permintaan ATK baru.</p>
-                        </div>
-                    </div>
+                    <!-- Bagian Permintaan ATK Baru dihapus dari sini -->
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Modal untuk detail Permintaan ATK -->
+    <div id="atkRequestDetailModal" class="atk-request-modal hidden">
+        <div class="atk-request-modal-content">
+            <h3 class="text-xl font-bold mb-4">Detail Permintaan ATK</h3>
+            <div id="atkRequestDetailContent" class="space-y-2 text-gray-700">
+                <!-- Detail permintaan akan dimuat di sini -->
+            </div>
+            <div class="flex justify-end space-x-2 mt-6">
+                <button id="closeAtkRequestModal" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">Tutup</button>
+                <button id="reviewAtkRequestModalBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Tinjau</button>
+                <button id="rejectAtkRequestModalBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">Tolak</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -432,8 +462,12 @@
         const exportExcelButton = document.getElementById('exportExcelButton');
         const exportMonthlyOrdersButton = document.getElementById('exportMonthlyOrdersButton');
 
-        // Referensi DOM Elements untuk ATK Requests
-        const atkRequestsContainer = document.getElementById('atkRequestsContainer');
+        // Referensi DOM Elements untuk Modal Permintaan ATK
+        const atkRequestDetailModal = document.getElementById('atkRequestDetailModal');
+        const atkRequestDetailContent = document.getElementById('atkRequestDetailContent');
+        const closeAtkRequestModal = document.getElementById('closeAtkRequestModal');
+        const reviewAtkRequestModalBtn = document.getElementById('reviewAtkRequestModalBtn');
+        const rejectAtkRequestModalBtn = document.getElementById('rejectAtkRequestModalBtn');
 
 
         // Variabel untuk Pagination
@@ -442,6 +476,7 @@
         let allItems = [];
         let filteredItems = [];
         let notifications = []; // Ini akan menyimpan notifikasi dari berbagai sumber
+        let currentAtkRequest = null; // Untuk menyimpan data permintaan ATK yang sedang dilihat di modal
 
         // Variabel untuk Kalender dan Pemesanan
         let currentCalendarDate = new Date();
@@ -504,10 +539,7 @@
         }
 
         // --- Fungsi Notifikasi ---
-        // Fungsi ini sekarang hanya akan memicu pembaruan notifikasi dari berbagai sumber
         function generateNotifications() {
-            // Notifikasi stok rendah dan habis akan ditambahkan ke array 'notifications'
-            // dan kemudian updateNotificationDisplay akan dipanggil
             updateNotificationDisplay();
         }
 
@@ -523,27 +555,25 @@
                 notificationBadge.style.display = 'none';
                 notificationBadge.textContent = '0';
             } else {
-                unreadNotifications.forEach((notif, index) => {
+                unreadNotifications.forEach((notif) => {
                     const notifItem = document.createElement('a');
                     notifItem.href = "#";
                     notifItem.className = `block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 font-semibold`;
                     notifItem.textContent = notif.message;
-                    notifItem.addEventListener('click', async (e) => {
-                        e.preventDefault();
-                        // Tandai notifikasi ini sebagai dibaca di Firestore
-                        if (notif.id && notif.source === 'notifications_collection') {
-                            await db.collection("notifications").doc(notif.id).update({ isRead: true });
-                        } else if (notif.id && notif.source === 'atk_requests_notification') {
-                            // Jika notifikasi berasal dari ATK requests, mungkin perlu logika berbeda
-                            // Misalnya, arahkan ke bagian ATK requests dan tandai sebagai 'Reviewed'
-                            // Untuk saat ini, kita hanya menandai notifikasi di array lokal sebagai dibaca
-                            const originalNotifIndex = notifications.findIndex(n => n.id === notif.id && n.source === notif.source);
-                            if (originalNotifIndex !== -1) {
-                                notifications[originalNotifIndex].isRead = true;
+
+                    if (notif.type === 'new_request') {
+                        notifItem.classList.add('atk-request-notification');
+                        notifItem.dataset.requestId = notif.requestId;
+                        notifItem.dataset.notificationId = notif.id; // ID notifikasi dari koleksi 'notifications'
+                    } else {
+                        notifItem.addEventListener('click', async (e) => {
+                            e.preventDefault();
+                            if (notif.id && notif.source === 'notifications_collection') {
+                                await db.collection("notifications").doc(notif.id).update({ isRead: true });
                             }
-                        }
-                        updateNotificationDisplay(); // Perbarui tampilan setelah dibaca
-                    });
+                            updateNotificationDisplay();
+                        });
+                    }
                     notificationContent.appendChild(notifItem);
                 });
                 notificationBadge.style.display = 'flex';
@@ -556,13 +586,25 @@
         }
 
         async function markAllNotificationsAsRead() {
+            const batch = db.batch();
+
             // Tandai notifikasi dari koleksi 'notifications' sebagai dibaca di Firestore
             const unreadFromCollection = notifications.filter(notif => !notif.isRead && notif.source === 'notifications_collection');
-            const batch = db.batch();
             unreadFromCollection.forEach(notif => {
                 const notifRef = db.collection("notifications").doc(notif.id);
                 batch.update(notifRef, { isRead: true });
             });
+
+            // Tandai permintaan ATK yang 'Pending' sebagai 'Reviewed'
+            const pendingAtkRequests = notifications.filter(notif => notif.type === 'new_request' && notif.status === 'Pending');
+            pendingAtkRequests.forEach(notif => {
+                const atkRequestRef = db.collection("atk_requests").doc(notif.requestId);
+                batch.update(atkRequestRef, { status: 'Reviewed', reviewedAt: firebase.firestore.Timestamp.now() });
+                // Juga tandai notifikasi terkait di koleksi 'notifications' sebagai dibaca
+                const notifRef = db.collection("notifications").doc(notif.id);
+                batch.update(notifRef, { isRead: true });
+            });
+
             await batch.commit();
 
             // Tandai notifikasi lokal (misalnya dari stok rendah/habis) sebagai dibaca
@@ -570,6 +612,7 @@
 
             updateNotificationDisplay();
             notificationPanel.classList.remove('show');
+            loadAtkRequests(); // Muat ulang permintaan ATK untuk memperbarui status di UI
         }
 
         // --- Listener Real-time untuk Notifikasi dari Koleksi 'notifications' ---
@@ -578,16 +621,13 @@
                 snapshot.docChanges().forEach((change) => {
                     const notifData = { id: change.doc.id, ...change.doc.data(), source: 'notifications_collection' };
                     if (change.type === "added") {
-                        // Tambahkan notifikasi baru ke array
                         notifications.unshift(notifData); // Tambahkan ke awal agar yang terbaru di atas
                     } else if (change.type === "modified") {
-                        // Perbarui notifikasi yang dimodifikasi (misalnya, isRead berubah)
                         const index = notifications.findIndex(n => n.id === notifData.id && n.source === notifData.source);
                         if (index !== -1) {
                             notifications[index] = notifData;
                         }
                     } else if (change.type === "removed") {
-                        // Hapus notifikasi yang dihapus
                         notifications = notifications.filter(n => n.id !== notifData.id || n.source !== notifData.source);
                     }
                 });
@@ -641,8 +681,7 @@
                 filterAndDisplayItems();
                 updateSummaryCards();
                 loadLowStockItems();
-                // Panggil generateNotifications untuk memperbarui notifikasi stok
-                updateStockNotifications();
+                updateStockNotifications(); // Panggil untuk memperbarui notifikasi stok
             } catch (error) {
                 console.error("Error loading items:", error);
                 alert("Gagal memuat item: " + error.message);
@@ -653,8 +692,8 @@
 
         // Fungsi baru untuk memperbarui notifikasi stok rendah/habis
         function updateStockNotifications() {
-            // Hapus notifikasi stok lama
-            notifications = notifications.filter(notif => notif.type !== 'warning' && notif.type !== 'danger');
+            // Hapus notifikasi stok lama dari array global
+            notifications = notifications.filter(notif => notif.source !== 'stock_alert');
 
             const lowStockCount = parseInt(lowStockItemsElement.textContent);
             const outOfStockCount = parseInt(outOfStockItemsElement.textContent);
@@ -664,7 +703,8 @@
                     type: 'warning',
                     message: `Ada ${lowStockCount} barang dengan stok rendah. Segera periksa!`,
                     isRead: false,
-                    source: 'stock_alert'
+                    source: 'stock_alert',
+                    timestamp: firebase.firestore.Timestamp.now() // Tambahkan timestamp
                 });
             }
             if (outOfStockCount > 0) {
@@ -672,9 +712,12 @@
                     type: 'danger',
                     message: `Ada ${outOfStockCount} barang yang habis. Perlu pemesanan baru!`,
                     isRead: false,
-                    source: 'stock_alert'
+                    source: 'stock_alert',
+                    timestamp: firebase.firestore.Timestamp.now() // Tambahkan timestamp
                 });
             }
+            // Urutkan notifikasi berdasarkan timestamp (terbaru di atas)
+            notifications.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
             updateNotificationDisplay();
         }
 
@@ -1325,71 +1368,91 @@
             XLSX.writeFile(wb, `data_pemesanan_${monthName.toLowerCase()}_${currentYear}.xlsx`);
         }
 
-        // NEW: Fungsi untuk memuat permintaan ATK
+        // NEW: Fungsi untuk memuat permintaan ATK (sekarang hanya untuk notifikasi)
         async function loadAtkRequests() {
-            atkRequestsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center">Memuat permintaan...</p>`;
             try {
-                const snapshot = await db.collection("atk_requests").orderBy("requestDate", "desc").get();
-                const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                displayAtkRequests(requests);
-                // Notifikasi ATK requests sekarang dikelola oleh listener koleksi 'notifications'
-                // generateAtkRequestNotifications(requests); // Ini tidak lagi diperlukan di sini
+                const snapshot = await db.collection("atk_requests").where("status", "==", "Pending").orderBy("requestDate", "desc").get();
+                const pendingRequests = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    type: 'new_request', // Tambahkan tipe untuk identifikasi
+                    message: `Permintaan ATK dari ${doc.data().requesterName}: ${doc.data().itemName} (${doc.data().quantity})`,
+                    requestId: doc.id, // ID permintaan ATK
+                    isRead: false, // Anggap belum dibaca di panel notifikasi
+                    source: 'atk_request_notification' // Sumber notifikasi
+                }));
+
+                // Hapus notifikasi ATK lama dari array global
+                notifications = notifications.filter(notif => notif.source !== 'atk_request_notification');
+                // Tambahkan permintaan ATK pending ke array global
+                notifications.push(...pendingRequests);
+
+                // Urutkan notifikasi berdasarkan timestamp (terbaru di atas)
+                notifications.sort((a, b) => (b.timestamp?.toDate() || b.requestDate?.toDate() || 0) - (a.timestamp?.toDate() || a.requestDate?.toDate() || 0));
+                updateNotificationDisplay();
             } catch (error) {
-                console.error("Error loading ATK requests:", error);
-                atkRequestsContainer.innerHTML = `<p class="text-sm text-red-500 text-center">Gagal memuat permintaan ATK.</p>`;
+                console.error("Error loading ATK requests for notifications:", error);
             }
         }
 
-        // NEW: Fungsi untuk menampilkan permintaan ATK
-        function displayAtkRequests(requests) {
-            atkRequestsContainer.innerHTML = '';
-            const pendingRequests = requests.filter(req => req.status === "Pending");
-
-            if (pendingRequests.length === 0) {
-                atkRequestsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center">Tidak ada permintaan ATK baru.</p>`;
-                return;
-            }
-
-            pendingRequests.forEach(request => {
-                const requestDiv = document.createElement('div');
-                requestDiv.className = 'bg-gray-50 p-4 rounded-lg shadow-sm flex items-start justify-between';
-                requestDiv.innerHTML = `
-                    <div>
-                        <p class="text-sm font-medium text-gray-900">${request.itemName} (${request.quantity})</p>
-                        <p class="text-xs text-gray-600">Oleh: ${request.requesterName} (${request.department})</p>
-                        <p class="text-xs text-gray-500">Catatan: ${request.notes || '-'}</p>
-                        <p class="text-xs text-gray-500">Tanggal: ${formatDate(request.requestDate)}</p>
-                    </div>
-                    <div class="flex space-x-2 mt-1">
-                        <button class="btn-review-request bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded" data-id="${request.id}">Tinjau</button>
-                        <button class="btn-reject-request bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1 rounded" data-id="${request.id}">Tolak</button>
-                    </div>
-                `;
-                atkRequestsContainer.appendChild(requestDiv);
-            });
-
-            document.querySelectorAll('.btn-review-request').forEach(button => {
-                button.addEventListener('click', () => updateAtkRequestStatus(button.dataset.id, 'Reviewed'));
-            });
-            document.querySelectorAll('.btn-reject-request').forEach(button => {
-                button.addEventListener('click', () => updateAtkRequestStatus(button.dataset.id, 'Rejected'));
-            });
-        }
-
-        // NEW: Fungsi untuk memperbarui status permintaan ATK
-        async function updateAtkRequestStatus(requestId, newStatus) {
+        // Fungsi untuk menampilkan modal detail permintaan ATK
+        async function showAtkRequestDetailModal(requestId, notificationId) {
             try {
-                await db.collection("atk_requests").doc(requestId).update({
+                const requestDoc = await db.collection("atk_requests").doc(requestId).get();
+                if (!requestDoc.exists) {
+                    alert("Detail permintaan ATK tidak ditemukan.");
+                    return;
+                }
+                currentAtkRequest = { id: requestDoc.id, notificationId: notificationId, ...requestDoc.data() };
+
+                atkRequestDetailContent.innerHTML = `
+                    <p><strong>Nama Pemohon:</strong> ${currentAtkRequest.requesterName}</p>
+                    <p><strong>Departemen:</strong> ${currentAtkRequest.department}</p>
+                    <p><strong>Nama Barang:</strong> ${currentAtkRequest.itemName}</p>
+                    <p><strong>Jumlah:</strong> ${currentAtkRequest.quantity}</p>
+                    <p><strong>Catatan:</strong> ${currentAtkRequest.notes || '-'}</p>
+                    <p><strong>Tanggal Permintaan:</strong> ${formatDate(currentAtkRequest.requestDate)}</p>
+                    <p><strong>Status:</strong> ${currentAtkRequest.status}</p>
+                `;
+
+                atkRequestDetailModal.classList.remove('hidden');
+            } catch (error) {
+                console.error("Error showing ATK request detail:", error);
+                alert("Gagal menampilkan detail permintaan ATK.");
+            }
+        }
+
+        // Fungsi untuk memperbarui status permintaan ATK (dari modal)
+        async function updateAtkRequestStatusFromModal(newStatus) {
+            if (!currentAtkRequest) return;
+
+            try {
+                const batch = db.batch();
+
+                // Update status permintaan ATK
+                const atkRequestRef = db.collection("atk_requests").doc(currentAtkRequest.id);
+                batch.update(atkRequestRef, {
                     status: newStatus,
                     reviewedAt: firebase.firestore.Timestamp.now()
                 });
+
+                // Tandai notifikasi terkait sebagai dibaca
+                if (currentAtkRequest.notificationId) {
+                    const notifRef = db.collection("notifications").doc(currentAtkRequest.notificationId);
+                    batch.update(notifRef, { isRead: true });
+                }
+
+                await batch.commit();
                 alert(`Permintaan ATK berhasil ditandai sebagai ${newStatus}.`);
-                loadAtkRequests(); // Muat ulang permintaan
+                atkRequestDetailModal.classList.add('hidden');
+                currentAtkRequest = null; // Reset current request
+                loadAtkRequests(); // Muat ulang permintaan ATK untuk memperbarui notifikasi
             } catch (error) {
-                console.error("Error updating ATK request status:", error);
+                console.error("Error updating ATK request status from modal:", error);
                 alert("Gagal memperbarui status permintaan ATK: " + error.message);
             }
         }
+
 
         // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', function() {
@@ -1404,10 +1467,31 @@
             notificationButton.addEventListener('click', toggleNotificationPanel);
             markAllReadButton.addEventListener('click', markAllNotificationsAsRead);
             document.addEventListener('click', function(event) {
-                if (!notificationPanel.contains(event.target) && !notificationButton.contains(event.target)) {
+                if (!notificationPanel.contains(event.target) && !notificationButton.contains(event.target) && !atkRequestDetailModal.contains(event.target)) {
                     notificationPanel.classList.remove('show');
                 }
             });
+
+            // Event listener untuk klik notifikasi permintaan ATK di panel
+            notificationContent.addEventListener('click', (e) => {
+                const target = e.target.closest('.atk-request-notification');
+                if (target) {
+                    e.preventDefault();
+                    const requestId = target.dataset.requestId;
+                    const notificationId = target.dataset.notificationId;
+                    showAtkRequestDetailModal(requestId, notificationId);
+                    notificationPanel.classList.remove('show'); // Tutup panel notifikasi
+                }
+            });
+
+            // Event listener untuk tombol di modal permintaan ATK
+            closeAtkRequestModal.addEventListener('click', () => {
+                atkRequestDetailModal.classList.add('hidden');
+                currentAtkRequest = null;
+            });
+            reviewAtkRequestModalBtn.addEventListener('click', () => updateAtkRequestStatusFromModal('Reviewed'));
+            rejectAtkRequestModalBtn.addEventListener('click', () => updateAtkRequestStatusFromModal('Rejected'));
+
 
             document.getElementById('prevPage').addEventListener('click', () => {
                 if (currentPage > 1) {
