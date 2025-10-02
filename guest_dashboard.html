@@ -18,23 +18,23 @@
             --danger: #ef4444; /* Red 500 */
             --warning: #f59e0b; /* Amber 500 */
         }
-        
+
         /* Gaya Umum */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f3f4f6; /* Gray 100 */
         }
-        
+
         /* Gaya Kalender */
         .calendar-day {
             transition: all 0.2s ease;
         }
-        
+
         .calendar-day.has-order {
             background-color: rgba(16, 185, 129, 0.1); /* Emerald 500 with opacity */
             position: relative;
         }
-        
+
         .calendar-day.has-order::after {
             content: '';
             position: absolute;
@@ -46,48 +46,45 @@
             background-color: var(--secondary);
             border-radius: 50%;
         }
-        
+
         .calendar-day:hover {
             background-color: #e5e7eb; /* Gray 200 */
             cursor: pointer;
         }
-        
+
         .calendar-day.selected {
             background-color: var(--primary);
             color: white;
         }
-        
+
         /* Gaya Kartu Stok */
         .stock-card {
             transition: all 0.3s ease;
         }
-        
+
         .stock-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); /* Shadow-md */
         }
-        
+
         .low-stock {
             border-left: 4px solid var(--danger);
         }
-        
+
         .medium-stock {
             border-left: 4px solid var(--warning);
         }
-        
+
         .high-stock {
             border-left: 4px solid var(--secondary);
         }
-        
+
         /* Gaya Badge Pemesanan */
         .order-badge {
             background-color: var(--secondary);
             color: white;
             font-size: 0.7rem;
         }
-
-        /* Gaya Notifikasi */
-        /* Notifikasi tidak akan ditampilkan di guest_dashboard.html */
 
         /* Penyesuaian Tabel agar lebih presisi */
         .min-w-full th, .min-w-full td {
@@ -110,7 +107,7 @@
             width: 15%; /* Sesuaikan lebar kolom Terakhir Dibeli */
         }
         /* Kolom Aksi dihapus untuk guest */
-        .min-w-full th:nth-child(5), .min-w-full td:nth-child(5) {
+        .min-w-full th.action-column, .min-w-full td.action-column {
             display: none; /* Sembunyikan kolom Aksi */
         }
     </style>
@@ -125,7 +122,11 @@
                     <h1 class="text-xl font-semibold text-gray-800">Dashboard - Inventory Alat Tulis Kantor (Tamu)</h1>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <!-- Tombol Tambah Barang, Notifikasi, dan Logout dihapus untuk guest -->
+                    <!-- Link ke halaman permintaan ATK -->
+                    <a href="guest.html" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center">
+                        <i class="fas fa-paper-plane mr-2"></i>Ajukan Permintaan ATK
+                    </a>
+                    <!-- Link ke halaman login admin -->
                     <a href="login.html" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-md text-sm font-medium flex items-center">
                         <i class="fas fa-sign-in-alt mr-2"></i>Login Admin
                     </a>
@@ -148,7 +149,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="bg-white rounded-lg shadow p-6">
                     <div class="flex justify-between items-start">
                         <div>
@@ -160,7 +161,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="bg-white rounded-lg shadow p-6">
                     <div class="flex justify-between items-start">
                         <div>
@@ -172,7 +173,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="bg-white rounded-lg shadow p-6">
                     <div class="flex justify-between items-start">
                         <div>
@@ -193,10 +194,9 @@
                     <div class="p-6">
                         <div class="flex justify-between items-center mb-6">
                             <h2 class="text-lg font-semibold text-gray-800">Kalender Pemesanan</h2>
-                            <button class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
-                            </button>
+                            <!-- Tombol kosong dihapus -->
                         </div>
-                        
+
                         <!-- Month Navigation -->
                         <div class="flex justify-between items-center mb-4">
                             <button id="prevMonth" class="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100">
@@ -207,7 +207,7 @@
                                 <i class="fas fa-chevron-right"></i>
                             </button>
                         </div>
-                        
+
                         <!-- Calendar Grid -->
                         <div class="mt-4">
                             <div class="grid grid-cols-7 gap-1 text-xs text-center text-gray-500 font-medium mb-2">
@@ -224,22 +224,20 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Orders for Selected Day -->
                     <div class="border-t border-gray-200 px-6 py-4">
                         <h3 id="selectedDayOrdersTitle" class="font-medium text-gray-800 mb-3">Pemesanan untuk Hari Ini (16 Juli)</h3>
-                        
+
                         <div id="selectedDayOrders" class="space-y-3">
                             <!-- Orders will be populated by JavaScript -->
                             <p class="text-sm text-gray-500 text-center">Tidak ada pemesanan untuk tanggal ini.</p>
                         </div>
-                        
-                        <button id="addOrderButton" class="mt-4 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 py-2 rounded-md text-sm font-medium flex items-center justify-center">
-                            <i class="fas fa-plus mr-2"></i>Tambah Pemesanan
-                        </button>
+
+                        <!-- Tombol Tambah Pemesanan dihapus untuk guest -->
                     </div>
                 </div>
-                
+
                 <!-- Item List Section -->
                 <div class="lg:col-span-2">
                     <div class="bg-white rounded-lg shadow overflow-hidden">
@@ -251,11 +249,11 @@
                                         <input type="text" id="searchItem" placeholder="Cari barang..." class="pl-8 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
                                         <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
                                     </div>
-                                    <!-- Tombol Filter dihapus untuk guest -->
+                                    <!-- Tombol Filter/Export dihapus untuk guest -->
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
@@ -272,8 +270,8 @@
                                         <th scope="col" class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Terakhir Dibeli
                                         </th>
-                                        <th scope="col" class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="display: none;">
-                                            Aksi <!-- Kolom Aksi disembunyikan -->
+                                        <th scope="col" class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider action-column">
+                                            Aksi <!-- Kolom Aksi disembunyikan melalui CSS -->
                                         </th>
                                     </tr>
                                 </thead>
@@ -285,7 +283,7 @@
                                 </tbody>
                             </table>
                         </div>
-                        
+
                         <div class="bg-gray-50 px-6 py-3 flex items-center justify-between border-t border-gray-200">
                             <div class="flex-1 flex justify-between items-center sm:hidden">
                                 <button class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
@@ -319,8 +317,8 @@
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Low Stock Alert dihapus untuk guest -->
+
+                    <!-- Low Stock Alert -->
                     <div class="mt-6 bg-white rounded-lg shadow overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-200">
                             <h2 class="text-lg font-semibold text-gray-800">Stok Rendah</h2>
@@ -349,7 +347,7 @@
         // Initialize Firebase
         const app = firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const auth = firebase.auth(); // Tetap ada untuk inisialisasi, tapi tidak digunakan untuk auth check
+        // const auth = firebase.auth(); // Tidak perlu auth di sini karena tidak ada proteksi rute untuk guest
 
         // Referensi DOM Elements
         const itemsTableBody = document.getElementById('itemsTableBody');
@@ -358,35 +356,19 @@
         const lowStockItemsElement = document.getElementById('lowStockItems');
         const todayOrdersElement = document.getElementById('todayOrders');
         const outOfStockItemsElement = document.getElementById('outOfStockItems');
-        // const addButton = document.getElementById('addButton'); // Dihapus karena tidak ada di guest_dashboard.html
         const searchInput = document.getElementById('searchItem');
         const selectedDayOrdersContainer = document.getElementById('selectedDayOrders');
-        const addOrderButton = document.getElementById('addOrderButton');
-        // const notificationButton = document.getElementById('notificationButton'); // Dihapus
-        // const notificationBadge = document.getElementById('notificationBadge');   // Dihapus
-        // const notificationPanel = document.getElementById('notificationPanel');   // Dihapus
-        // const notificationContent = document.getElementById('notificationContent'); // Dihapus
-        // const markAllReadButton = document.getElementById('markAllRead'); // Dihapus
-        // const logoutButton = document.getElementById('logoutButton'); // Dihapus
+        // Tombol-tombol admin dihapus dari referensi DOM
 
         // Variabel untuk Pagination
         let currentPage = 1;
         const itemsPerPage = 6; // Jumlah item per halaman
         let allItems = []; // Menyimpan semua item dari Firestore
         let filteredItems = []; // Menyimpan item setelah filter/pencarian
-        // let notifications = []; // Dihapus
 
         // Variabel untuk Kalender dan Pemesanan
         let currentCalendarDate = new Date();
         let ordersData = {}; // Akan menyimpan data pemesanan dari Firestore (dari koleksi 'orders')
-
-        // Tidak perlu isGuestMode di sini, karena ini memang halaman guest
-
-        // --- Proteksi Rute (Tidak ada proteksi untuk guest) ---
-        // auth.onAuthStateChanged(user => { /* Tidak perlu redirect */ });
-
-        // --- Handle Logout (Tidak ada tombol logout, tapi bisa tambahkan link ke login) ---
-        // Tidak ada fungsi logout di sini
 
         // --- Fungsi Utilitas ---
         function formatDate(date) {
@@ -426,18 +408,7 @@
             return 'text-green-600 bg-green-100';
         }
 
-        // --- Fungsi Notifikasi (Dihapus untuk guest) ---
-        // function generateNotifications() { /* ... */ }
-        // function updateNotificationDisplay() { /* ... */ }
-        // function toggleNotificationPanel() { /* ... */ }
-        // function markAllNotificationsAsRead() { /* ... */ }
-
         // --- Fungsi CRUD Firebase (office_supplies) ---
-
-        // CREATE: Menambahkan item baru (Tidak diizinkan untuk guest)
-        async function addItem() {
-            alert("Anda tidak memiliki izin untuk menambah barang.");
-        }
 
         // READ: Memuat semua item dari Firestore
         async function loadItems() {
@@ -450,23 +421,12 @@
                 filterAndDisplayItems();
                 updateSummaryCards();
                 loadLowStockItems();
-                // generateNotifications(); // Dihapus
             } catch (error) {
                 console.error("Error loading items:", error);
                 alert("Gagal memuat item: " + error.message);
                 itemsTableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 whitespace-nowrap text-center text-red-500">Gagal memuat data. Cek koneksi atau konfigurasi Firebase.</td></tr>`;
                 lowStockCardsContainer.innerHTML = `<p class="text-sm text-red-500 text-center col-span-full">Gagal memuat data stok rendah.</p>`;
             }
-        }
-
-        // UPDATE: Mengedit item (Tidak diizinkan untuk guest)
-        async function editItem(id) {
-            alert("Anda tidak memiliki izin untuk mengedit barang.");
-        }
-
-        // DELETE: Menghapus item (Tidak diizinkan untuk guest)
-        async function deleteItem(id) {
-            alert("Anda tidak memiliki izin untuk menghapus barang.");
         }
 
         // --- Fungsi Tampilan ---
@@ -514,21 +474,19 @@
                     <td class="text-sm text-gray-500">
                         ${formatDate(item.lastPurchased)}
                     </td>
-                    <td class="text-sm font-medium text-center" style="display: none;">
-                        <!-- Kolom Aksi disembunyikan -->
+                    <td class="text-sm font-medium text-center action-column">
+                        <!-- Kolom Aksi disembunyikan melalui CSS -->
                     </td>
                 `;
                 itemsTableBody.appendChild(row);
             });
-
-            // Tidak ada event listener untuk edit/hapus di guest mode
 
             updatePagination(items.length);
         }
 
         function filterAndDisplayItems() {
             const searchTerm = searchInput.value.toLowerCase();
-            filteredItems = allItems.filter(item => 
+            filteredItems = allItems.filter(item =>
                 item.name.toLowerCase().includes(searchTerm) ||
                 item.category.toLowerCase().includes(searchTerm) ||
                 item.id.toLowerCase().includes(searchTerm)
@@ -539,7 +497,7 @@
 
         function updateSummaryCards() {
             totalItemsElement.textContent = allItems.length;
-            
+
             let lowStockCount = 0;
             let outOfStockCount = 0;
             allItems.forEach(item => {
@@ -652,7 +610,7 @@
             const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
             const currentMonthYearElement = document.getElementById('currentMonthYear');
             const calendarGrid = document.getElementById('calendarGrid');
-            
+
             currentMonthYearElement.textContent = `${monthNames[currentCalendarDate.getMonth()]} ${currentCalendarDate.getFullYear()}`;
             calendarGrid.innerHTML = '';
 
@@ -696,7 +654,7 @@
             const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
             const selectedDayOrdersTitle = document.getElementById('selectedDayOrdersTitle');
             selectedDayOrdersTitle.textContent = `Pemesanan untuk ${date.getDate()} ${monthNames[date.getMonth()]}`;
-            
+
             selectedDayOrdersContainer.innerHTML = '';
 
             const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -714,7 +672,8 @@
                         ? order.items.map(item => `${item.name} (${item.quantity})`).join(', ')
                         : 'Tidak ada barang';
 
-                    const statusControlHtml = `
+                    // Untuk guest, tampilkan status sebagai teks, bukan select
+                    const statusDisplayHtml = `
                         <span class="px-2 py-1 rounded-full text-xs bg-white border ${getStatusColorClass(order.status)}">
                             ${order.status}
                         </span>
@@ -728,174 +687,20 @@
                             <p class="text-sm font-medium">Pesanan untuk ${order.customerName}</p>
                             <p class="text-xs text-gray-500">${itemsDisplay} • ${order.department}</p>
                         </div>
-                        ${statusControlHtml}
+                        ${statusDisplayHtml}
                     `;
                     selectedDayOrdersContainer.appendChild(orderDiv);
                 });
                 todayOrdersElement.textContent = ordersForDay.length;
-
-                // Tidak ada event listener untuk perubahan status di guest mode
             }
         }
-
-        async function addOrder() {
-            const selectedDayElement = document.querySelector('.calendar-day.selected');
-            if (!selectedDayElement) {
-                alert("Pilih tanggal di kalender terlebih dahulu untuk pemesanan.");
-                return;
-            }
-            const selectedDay = parseInt(selectedDayElement.textContent.trim());
-            const selectedDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), selectedDay);
-
-            const orderModal = document.createElement('div');
-            orderModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50';
-            orderModal.innerHTML = `
-                <div class="bg-white rounded-lg p-6 w-full max-w-lg shadow-lg">
-                    <h2 class="text-xl font-semibold mb-4">Tambah Pemesanan Baru</h2>
-                    <form id="newOrderForm">
-                        <div class="mb-4">
-                            <label class="block text-gray-700 text-sm font-bold mb-2" for="customerNameInput">Nama Pemesan:</label>
-                            <input type="text" id="customerNameInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Nama Pelanggan/Karyawan" required>
-                        </div>
-                        <div class="mb-4">
-                            <label class="block text-gray-700 text-sm font-bold mb-2" for="departmentInput">Departemen Pemesan:</label>
-                            <input type="text" id="departmentInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Divisi Keuangan" required>
-                        </div>
-                        <div class="mb-4">
-                            <label class="block text-gray-700 text-sm font-bold mb-2">Pilih Barang:</label>
-                            <div id="orderItemsContainer" class="space-y-2 border p-3 rounded-md max-h-60 overflow-y-auto">
-                                <!-- Item selection will be populated here -->
-                            </div>
-                            <button type="button" id="addItemToOrder" class="mt-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm py-1 px-3 rounded-md">Tambah Barang</button>
-                        </div>
-                        <div class="flex justify-end space-x-4 mt-6">
-                            <button type="button" id="cancelOrderBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">Batal</button>
-                            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Simpan Pemesanan</button>
-                        </div>
-                    </form>
-                </div>
-            `;
-            document.body.appendChild(orderModal);
-
-            const orderItemsContainer = document.getElementById('orderItemsContainer');
-            const addItemToOrderButton = document.getElementById('addItemToOrder');
-            const newOrderForm = document.getElementById('newOrderForm');
-            const cancelOrderBtn = document.getElementById('cancelOrderBtn');
-
-            let selectedOrderItems = [];
-
-            function addOrderItemRow(item = null, quantity = 1) {
-                const itemRow = document.createElement('div');
-                itemRow.className = 'flex items-center space-x-2';
-                itemRow.innerHTML = `
-                    <select class="item-select shadow border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline flex-grow" required>
-                        <option value="">Pilih Barang</option>
-                        ${allItems.map(i => `<option value="${i.id}">${i.name} (Stok: ${i.stock})</option>`).join('')}
-                    </select>
-                    <input type="number" class="quantity-input shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-20" value="${quantity}" min="1" required>
-                    <button type="button" class="remove-item-btn text-red-500 hover:text-red-700"><i class="fas fa-times"></i></button>
-                `;
-                orderItemsContainer.appendChild(itemRow);
-
-                itemRow.querySelector('.remove-item-btn').addEventListener('click', () => {
-                    itemRow.remove();
-                    updateSelectedOrderItems();
-                });
-
-                itemRow.querySelector('.item-select').addEventListener('change', updateSelectedOrderItems);
-                itemRow.querySelector('.quantity-input').addEventListener('input', updateSelectedOrderItems);
-
-                updateSelectedOrderItems();
-            }
-
-            function updateSelectedOrderItems() {
-                selectedOrderItems = [];
-                orderItemsContainer.querySelectorAll('.item-select').forEach(select => {
-                    const itemId = select.value;
-                    const quantity = parseInt(select.closest('.flex').querySelector('.quantity-input').value);
-                    if (itemId && !isNaN(quantity) && quantity > 0) {
-                        const itemData = allItems.find(item => item.id === itemId);
-                        if (itemData) {
-                            selectedOrderItems.push({
-                                id: itemId,
-                                name: itemData.name,
-                                quantity: quantity,
-                                currentStock: itemData.stock
-                            });
-                        }
-                    }
-                });
-            }
-
-            addOrderItemRow();
-
-            addItemToOrderButton.addEventListener('click', addOrderItemRow);
-
-            // Perbaikan tombol Batal
-            cancelOrderBtn.addEventListener('click', () => {
-                orderModal.remove(); // Ini akan menghapus modal dari DOM
-            });
-
-            newOrderForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-
-                const customerName = document.getElementById('customerNameInput').value;
-                const department = document.getElementById('departmentInput').value;
-
-                if (selectedOrderItems.length === 0) {
-                    alert("Pemesanan harus memiliki setidaknya satu barang.");
-                    return;
-                }
-
-                for (const item of selectedOrderItems) {
-                    const currentItemInDb = allItems.find(i => i.id === item.id);
-                    if (!currentItemInDb || currentItemInDb.stock < item.quantity) {
-                        alert(`Stok ${item.name} tidak cukup. Tersedia: ${currentItemInDb ? currentItemInDb.stock : 0}, Diminta: ${item.quantity}`);
-                        return;
-                    }
-                }
-
-                try {
-                    await db.collection("orders").add({
-                        customerName: customerName,
-                        orderDate: firebase.firestore.Timestamp.fromDate(selectedDate),
-                        department: department,
-                        items: selectedOrderItems.map(item => ({
-                            itemId: item.id,
-                            name: item.name,
-                            quantity: item.quantity
-                        })),
-                        status: "Baru",
-                        createdAt: firebase.firestore.Timestamp.now()
-                    });
-                    alert("Pemesanan berhasil ditambahkan!");
-                    orderModal.remove();
-                    await loadOrders();
-                } catch (error) {
-                    console.error("Error adding order:", error);
-                    alert("Gagal menambahkan pemesanan: " + error.message);
-                }
-            });
-        }
-
-        // Fungsi untuk memperbarui status pemesanan (Tidak diizinkan untuk guest)
-        async function updateOrderStatus(orderId, newStatus) {
-            alert("Anda tidak memiliki izin untuk mengubah status pemesanan.");
-        }
-
 
         // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', function() {
             loadItems();
             loadOrders();
 
-            // Event listener untuk tombol "Tambah Barang" (tidak ada di guest_dashboard.html)
-            // addButton.addEventListener('click', addItem);
             searchInput.addEventListener('input', filterAndDisplayItems);
-            addOrderButton.addEventListener('click', addOrder);
-            
-            // Notifikasi Event Listeners (tidak ada di guest_dashboard.html)
-            // if (!isGuestMode) { ... }
 
             document.getElementById('prevPage').addEventListener('click', () => {
                 if (currentPage > 1) {
@@ -929,7 +734,7 @@
                 card.addEventListener('mouseenter', function() {
                     this.style.transition = 'all 0.3s ease';
                 });
-                
+
                 card.addEventListener('mouseleave', function() {
                     this.style.transition = 'all 0.3s ease';
                 });
