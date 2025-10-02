@@ -102,6 +102,7 @@
 
                 alert("Permintaan ATK berhasil dikirim! Admin akan segera meninjaunya.");
                 document.getElementById('atkRequestForm').reset(); // Reset form
+                window.location.href = 'guest_dashboard.html'; // Redirect ke guest_dashboard.html
             } catch (error) {
                 console.error("Error sending ATK request:", error);
                 alert("Gagal mengirim permintaan ATK: " + error.message);
