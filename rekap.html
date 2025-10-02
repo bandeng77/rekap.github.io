@@ -531,7 +531,7 @@
             return 'text-green-600 bg-green-100';
         }
 
-        // --- Fungsi Notifikasi ---
+        // --- Fungsi Notifikasi yang Diperbarui ---
         function updateNotificationDisplay() {
             notificationContent.innerHTML = '';
             let unreadCount = 0;
@@ -547,7 +547,7 @@
                 // Urutkan notifikasi berdasarkan timestamp (terbaru di atas)
                 unreadNotifications.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
 
-                unreadNotifications.forEach((notif, index) => {
+                unreadNotifications.forEach((notif) => {
                     const notifItem = document.createElement('a');
                     notifItem.href = "#";
                     notifItem.className = `block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 font-semibold`;
@@ -555,14 +555,19 @@
                     notifItem.addEventListener('click', async (e) => {
                         e.preventDefault();
                         // Tandai notifikasi ini sebagai dibaca di Firestore atau lokal
-                        if (notif.id && notif.source === 'notifications_collection') {
-                            await db.collection("notifications").doc(notif.id).update({ isRead: true });
-                        } else if (notif.source === 'atk_requests_notification' || notif.source === 'stock_alert') {
-                            // Untuk notifikasi ATK requests atau stock_alert, tandai sebagai dibaca secara lokal
-                            const originalNotifIndex = notifications.findIndex(n => n.id === notif.id && n.source === notif.source);
-                            if (originalNotifIndex !== -1) {
-                                notifications[originalNotifIndex].isRead = true;
-                            }
+                        if (notif.id && notif.source === 'atk_receipt_notification') {
+                            await db.collection("atk_receipts").doc(notif.id).update({ isRead: true });
+                        } else if (notif.id && notif.source === 'atk_requests_notification') {
+                            // Jika Anda ingin notifikasi permintaan ATK juga ditandai dibaca di Firestore
+                            // await db.collection("atk_requests").doc(notif.id).update({ isRead: true });
+                        } else if (notif.source === 'stock_alert') {
+                            // Notifikasi stok rendah/habis hanya lokal, tidak perlu update Firestore
+                        }
+
+                        // Tandai sebagai dibaca secara lokal
+                        const originalNotifIndex = notifications.findIndex(n => n.id === notif.id && n.source === notif.source);
+                        if (originalNotifIndex !== -1) {
+                            notifications[originalNotifIndex].isRead = true;
                         }
                         updateNotificationDisplay(); // Perbarui tampilan setelah dibaca
                     });
@@ -578,44 +583,76 @@
         }
 
         async function markAllNotificationsAsRead() {
-            // Tandai notifikasi dari koleksi 'notifications' sebagai dibaca di Firestore
-            const unreadFromCollection = notifications.filter(notif => !notif.isRead && notif.source === 'notifications_collection');
             const batch = db.batch();
-            unreadFromCollection.forEach(notif => {
-                const notifRef = db.collection("notifications").doc(notif.id);
+
+            // Tandai notifikasi dari koleksi 'atk_receipts' sebagai dibaca di Firestore
+            const unreadReceipts = notifications.filter(notif => !notif.isRead && notif.source === 'atk_receipt_notification');
+            unreadReceipts.forEach(notif => {
+                const notifRef = db.collection("atk_receipts").doc(notif.id);
                 batch.update(notifRef, { isRead: true });
             });
+
+            // Tandai notifikasi dari koleksi 'atk_requests' sebagai dibaca di Firestore (jika diaktifkan)
+            // const unreadRequests = notifications.filter(notif => !notif.isRead && notif.source === 'atk_requests_notification');
+            // unreadRequests.forEach(notif => {
+            //     const notifRef = db.collection("atk_requests").doc(notif.id);
+            //     batch.update(notifRef, { isRead: true });
+            // });
+
             await batch.commit();
 
-            // Tandai notifikasi lokal (misalnya dari stok rendah/habis, ATK requests) sebagai dibaca
+            // Tandai semua notifikasi lokal sebagai dibaca
             notifications.forEach(notif => notif.isRead = true);
 
             updateNotificationDisplay();
             notificationPanel.classList.remove('show');
         }
 
-        // --- Listener Real-time untuk Notifikasi dari Koleksi 'notifications' ---
-        db.collection("notifications").where("isRead", "==", false).orderBy("timestamp", "desc")
+        // --- Listener Real-time untuk Notifikasi Penerimaan ATK Baru ---
+        db.collection("atk_receipts").where("isRead", "==", false).orderBy("timestamp", "desc")
             .onSnapshot((snapshot) => {
                 snapshot.docChanges().forEach((change) => {
-                    const notifData = { id: change.doc.id, ...change.doc.data(), source: 'notifications_collection' };
+                    const receiptData = { id: change.doc.id, ...change.doc.data() };
                     if (change.type === "added") {
-                        notifications.unshift(notifData);
+                        const exists = notifications.some(notif => notif.id === receiptData.id && notif.source === 'atk_receipt_notification');
+                        if (!exists) {
+                            notifications.unshift({ // Tambahkan ke awal array agar terbaru muncul di atas
+                                id: receiptData.id,
+                                message: `Penerimaan ATK baru: ${receiptData.itemName} (${receiptData.quantity} unit) oleh ${receiptData.receivedBy}.`,
+                                isRead: false,
+                                source: 'atk_receipt_notification',
+                                timestamp: receiptData.timestamp
+                            });
+                        }
                     } else if (change.type === "modified") {
-                        const index = notifications.findIndex(n => n.id === notifData.id && n.source === notifData.source);
-                        if (index !== -1) {
-                            notifications[index] = notifData;
+                        // Jika status isRead berubah menjadi true, hapus dari daftar notifikasi aktif
+                        if (receiptData.isRead === true) {
+                            notifications = notifications.filter(notif => !(notif.id === receiptData.id && notif.source === 'atk_receipt_notification'));
+                        } else {
+                            // Jika ada modifikasi lain (misal pesan berubah), update notifikasi
+                            const index = notifications.findIndex(n => n.id === receiptData.id && n.source === 'atk_receipt_notification');
+                            if (index !== -1) {
+                                notifications[index] = {
+                                    id: receiptData.id,
+                                    message: `Penerimaan ATK baru: ${receiptData.itemName} (${receiptData.quantity} unit) oleh ${receiptData.receivedBy}.`,
+                                    isRead: receiptData.isRead,
+                                    source: 'atk_receipt_notification',
+                                    timestamp: receiptData.timestamp
+                                };
+                            }
                         }
                     } else if (change.type === "removed") {
-                        notifications = notifications.filter(n => n.id !== notifData.id || n.source !== notifData.source);
+                        notifications = notifications.filter(notif => !(notif.id === receiptData.id && notif.source === 'atk_receipt_notification'));
                     }
                 });
-                updateNotificationDisplay();
+                updateNotificationDisplay(); // Panggil setelah setiap perubahan
             }, (error) => {
-                console.error("Error listening to notifications collection:", error);
+                console.error("Error listening to atk_receipts collection:", error);
             });
 
         // --- Listener Real-time untuk Notifikasi dari Koleksi 'atk_requests' ---
+        // Jika Anda ingin notifikasi permintaan ATK juga, pastikan koleksi 'atk_requests' memiliki field 'isRead'
+        // dan sesuaikan logika di bawah ini agar mirip dengan 'atk_receipts'
         db.collection("atk_requests").where("status", "==", "Pending").orderBy("requestDate", "desc")
             .onSnapshot((snapshot) => {
                 snapshot.docChanges().forEach((change) => {
@@ -626,14 +663,27 @@
                             notifications.unshift({
                                 id: requestData.id,
                                 message: `Permintaan ATK baru dari ${requestData.requesterName} untuk ${requestData.itemName} (${requestData.quantity})`,
-                                isRead: false,
+                                isRead: false, // Asumsi atk_requests juga punya isRead
                                 source: 'atk_requests_notification',
                                 timestamp: requestData.requestDate
                             });
                         }
                     } else if (change.type === "modified") {
-                        if (requestData.status !== "Pending") {
+                        // Jika status berubah dari Pending atau isRead menjadi true
+                        // Anda mungkin perlu menambahkan field 'isRead' ke koleksi atk_requests
+                        if (requestData.status !== "Pending") { // Hanya cek status jika tidak ada isRead
                             notifications = notifications.filter(notif => !(notif.id === requestData.id && notif.source === 'atk_requests_notification'));
+                        } else {
+                            const index = notifications.findIndex(n => n.id === requestData.id && n.source === 'atk_requests_notification');
+                            if (index !== -1) {
+                                notifications[index] = {
+                                    id: requestData.id,
+                                    message: `Permintaan ATK baru dari ${requestData.requesterName} untuk ${requestData.itemName} (${requestData.quantity})`,
+                                    isRead: false, // Tetap false jika status masih Pending
+                                    source: 'atk_requests_notification',
+                                    timestamp: requestData.requestDate
+                                };
+                            }
                         }
                     } else if (change.type === "removed") {
                         notifications = notifications.filter(notif => !(notif.id === requestData.id && notif.source === 'atk_requests_notification'));
@@ -1453,6 +1503,27 @@
             }
         }
 
+        // --- Fungsi baru untuk menambahkan penerimaan ATK (contoh) ---
+        // Anda perlu mengintegrasikan ini ke dalam alur kerja Anda,
+        // misalnya, melalui form atau tombol "Terima Barang"
+        async function addAtkReceipt(itemName, quantity, receivedBy) {
+            try {
+                await db.collection("atk_receipts").add({
+                    itemName: itemName,
+                    quantity: quantity,
+                    receivedBy: receivedBy,
+                    timestamp: firebase.firestore.Timestamp.now(),
+                    isRead: false // Default: belum dibaca
+                });
+                console.log("Penerimaan ATK berhasil ditambahkan!");
+                // Tidak perlu memanggil updateNotificationDisplay() di sini,
+                // karena snapshot listener akan otomatis mendeteksinya.
+            } catch (error) {
+                console.error("Error adding ATK receipt:", error);
+                alert("Gagal menambahkan penerimaan ATK: " + error.message);
+            }
+        }
+
         // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', function() {
             loadItems();
@@ -1531,6 +1602,12 @@
             });
 
             exportMonthlyOrdersButton.addEventListener('click', exportMonthlyOrdersToExcel);
+
+            // Contoh: Panggil fungsi addAtkReceipt dari suatu tempat, misalnya tombol
+            // Ini hanya contoh, Anda perlu mengintegrasikan ini ke UI Anda
+            // document.getElementById('someButtonToReceiveATK').addEventListener('click', () => {
+            //     addAtkReceipt("Pulpen Gel", 20, "Admin Gudang");
+            // });
         });
     </script>
 </body>
