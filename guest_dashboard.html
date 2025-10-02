@@ -320,8 +320,16 @@
 
                     <!-- Low Stock Alert -->
                     <div class="mt-6 bg-white rounded-lg shadow overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200">
+                        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                             <h2 class="text-lg font-semibold text-gray-800">Stok Rendah</h2>
+                            <div class="flex space-x-2">
+                                <button id="prevLowStockPage" class="relative inline-flex items-center px-2 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-500 bg-white hover:bg-gray-50">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <button id="nextLowStockPage" class="relative inline-flex items-center px-2 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-500 bg-white hover:bg-gray-50">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
                         </div>
                         <div id="lowStockCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                             <p class="text-sm text-gray-500 text-center col-span-full">Tidak ada barang dengan stok rendah.</p>
@@ -360,11 +368,16 @@
         const selectedDayOrdersContainer = document.getElementById('selectedDayOrders');
         // Tombol-tombol admin dihapus dari referensi DOM
 
-        // Variabel untuk Pagination
+        // Variabel untuk Pagination Daftar Barang
         let currentPage = 1;
         const itemsPerPage = 6; // Jumlah item per halaman
         let allItems = []; // Menyimpan semua item dari Firestore
         let filteredItems = []; // Menyimpan item setelah filter/pencarian
+
+        // Variabel untuk Pagination Stok Rendah
+        let lowStockCurrentPage = 1;
+        const lowStockItemsPerPage = 3; // Jumlah item stok rendah per halaman
+        let allLowStockItems = []; // Menyimpan semua item stok rendah
 
         // Variabel untuk Kalender dan Pemesanan
         let currentCalendarDate = new Date();
@@ -420,7 +433,7 @@
                 allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 filterAndDisplayItems();
                 updateSummaryCards();
-                loadLowStockItems();
+                loadLowStockItems(); // Memuat dan menampilkan item stok rendah
             } catch (error) {
                 console.error("Error loading items:", error);
                 alert("Gagal memuat item: " + error.message);
@@ -429,7 +442,7 @@
             }
         }
 
-        // --- Fungsi Tampilan ---
+        // --- Fungsi Tampilan Daftar Barang ---
 
         function displayItems(items) {
             itemsTableBody.innerHTML = '';
@@ -447,6 +460,7 @@
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-gray-50';
                 const stockPercentage = (item.stock / item.maxStock) * 100;
+                // Menggunakan kelas Tailwind CSS untuk warna, pastikan kelas seperti bg-red-500, bg-yellow-500, bg-green-500 tersedia
                 const stockColor = stockPercentage <= 15 ? 'red' : (stockPercentage <= 50 ? 'yellow' : 'green');
 
                 row.innerHTML = `
@@ -504,6 +518,7 @@
                 if (item.stock === 0) {
                     outOfStockCount++;
                 }
+                // Definisi stok rendah: kurang dari atau sama dengan 15% dari maxStock
                 if (item.stock > 0 && (item.stock / item.maxStock) * 100 <= 15) {
                     lowStockCount++;
                 }
@@ -512,20 +527,32 @@
             outOfStockItemsElement.textContent = outOfStockCount;
         }
 
+        // --- Fungsi Tampilan Stok Rendah dengan Paginasi ---
         function loadLowStockItems() {
-            lowStockCardsContainer.innerHTML = '';
-            const lowStockItems = allItems.filter(item => (item.stock / item.maxStock) * 100 <= 50);
+            allLowStockItems = allItems.filter(item => (item.stock / item.maxStock) * 100 <= 50); // Filter semua item stok rendah/sedang
+            lowStockCurrentPage = 1; // Reset ke halaman pertama setiap kali data dimuat ulang
+            displayLowStockItems();
+        }
 
-            if (lowStockItems.length === 0) {
+        function displayLowStockItems() {
+            lowStockCardsContainer.innerHTML = '';
+
+            if (allLowStockItems.length === 0) {
                 lowStockCardsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center col-span-full">Tidak ada barang dengan stok rendah.</p>`;
+                updateLowStockPagination(0);
                 return;
             }
 
-            lowStockItems.forEach(item => {
+            const startIndex = (lowStockCurrentPage - 1) * lowStockItemsPerPage;
+            const endIndex = startIndex + lowStockItemsPerPage;
+            const itemsToDisplay = allLowStockItems.slice(startIndex, endIndex);
+
+            itemsToDisplay.forEach(item => {
                 const card = document.createElement('div');
                 const stockStatusClass = getStockStatus(item.stock, item.maxStock);
                 const badgeText = getStockBadgeText(item.stock, item.maxStock);
                 const badgeColorClass = getStockBadgeColor(item.stock, item.maxStock);
+                // Ekstrak warna dasar dari stockStatusClass (e.g., 'low' dari 'low-stock')
                 const stockColorBase = stockStatusClass.split('-')[0];
 
                 card.className = `stock-card ${stockStatusClass} bg-white rounded-lg shadow-sm p-4`;
@@ -548,14 +575,15 @@
                             <span>Sisa:</span>
                             <span class="font-semibold text-${stockColorBase}-600">${item.stock}/${item.maxStock}</span>
                         </div>
-                        </div>
                     </div>
                 `;
                 lowStockCardsContainer.appendChild(card);
             });
+
+            updateLowStockPagination(allLowStockItems.length);
         }
 
-        // --- Fungsi Pagination ---
+        // --- Fungsi Pagination Daftar Barang ---
         function updatePagination(totalItemsCount) {
             const totalPages = Math.ceil(totalItemsCount / itemsPerPage);
             const paginationNumbers = document.getElementById('paginationNumbers');
@@ -581,6 +609,13 @@
 
             document.getElementById('prevPage').disabled = currentPage === 1;
             document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+        }
+
+        // --- Fungsi Pagination Stok Rendah ---
+        function updateLowStockPagination(totalLowStockItemsCount) {
+            const totalPages = Math.ceil(totalLowStockItemsCount / lowStockItemsPerPage);
+            document.getElementById('prevLowStockPage').disabled = lowStockCurrentPage === 1;
+            document.getElementById('nextLowStockPage').disabled = lowStockCurrentPage === totalPages || totalPages === 0;
         }
 
         // --- Fungsi Kalender dan Pemesanan ---
@@ -617,8 +652,9 @@
             const firstDayOfMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1);
             const lastDayOfMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 0);
             const daysInMonth = lastDayOfMonth.getDate();
-            const startDayOfWeek = firstDayOfMonth.getDay();
+            const startDayOfWeek = firstDayOfMonth.getDay(); // 0 = Minggu, 1 = Senin, dst.
 
+            // Tambahkan div kosong untuk mengisi hari sebelum tanggal 1
             for (let i = 0; i < startDayOfWeek; i++) {
                 const emptyDiv = document.createElement('div');
                 emptyDiv.className = 'py-2';
@@ -702,6 +738,7 @@
 
             searchInput.addEventListener('input', filterAndDisplayItems);
 
+            // Event listeners untuk paginasi daftar barang
             document.getElementById('prevPage').addEventListener('click', () => {
                 if (currentPage > 1) {
                     currentPage--;
@@ -717,18 +754,38 @@
                 }
             });
 
+            // Event listeners untuk paginasi stok rendah
+            document.getElementById('prevLowStockPage').addEventListener('click', () => {
+                if (lowStockCurrentPage > 1) {
+                    lowStockCurrentPage--;
+                    displayLowStockItems();
+                }
+            });
+
+            document.getElementById('nextLowStockPage').addEventListener('click', () => {
+                const totalPages = Math.ceil(allLowStockItems.length / lowStockItemsPerPage);
+                if (lowStockCurrentPage < totalPages) {
+                    lowStockCurrentPage++;
+                    displayLowStockItems();
+                }
+            });
+
+            // Event listeners untuk kalender
             document.getElementById('prevMonth').addEventListener('click', () => {
                 currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
                 renderCalendar();
+                // Setelah bulan berubah, perbarui pemesanan untuk hari pertama bulan baru
                 updateSelectedDayOrders(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1));
             });
 
             document.getElementById('nextMonth').addEventListener('click', () => {
                 currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
                 renderCalendar();
+                // Setelah bulan berubah, perbarui pemesanan untuk hari pertama bulan baru
                 updateSelectedDayOrders(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1));
             });
 
+            // Efek hover untuk kartu stok (sudah ada, hanya memastikan tetap berfungsi)
             const stockCards = document.querySelectorAll('.stock-card');
             stockCards.forEach(card => {
                 card.addEventListener('mouseenter', function() {
