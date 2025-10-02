@@ -105,6 +105,9 @@
         #notificationPanel.show {
             display: block;
         }
+        #notificationBadge {
+            display: none; /* Sembunyikan secara default jika tidak ada notifikasi */
+        }
 
         /* Penyesuaian Tabel agar lebih presisi */
         .min-w-full th, .min-w-full td {
@@ -151,12 +154,12 @@
                     <div class="relative">
                         <button id="notificationButton" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-md text-sm font-medium flex items-center">
                             <i class="fas fa-bell mr-2"></i>
-                            <span id="notificationBadge" class="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
+                            <span id="notificationBadge" class="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center" style="display: none;">0</span>
                         </button>
                         <!-- Notification Panel -->
                         <div id="notificationPanel" class="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-orientation="vertical" aria-labelledby="notification-menu-button" tabindex="-1">
                             <div class="px-4 py-2 text-sm text-gray-700 font-semibold border-b border-gray-200">Notifikasi</div>
-                            <div id="notificationContent" class="py-1">
+                            <div id="notificationContent" class="py-1 max-h-60 overflow-y-auto">
                                 <!-- Notifikasi akan dimuat di sini -->
                                 <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Tidak ada notifikasi baru.</a>
                             </div>
@@ -427,9 +430,9 @@
         const markAllReadButton = document.getElementById('markAllRead');
         const logoutButton = document.getElementById('logoutButton');
         const exportExcelButton = document.getElementById('exportExcelButton');
-        const exportMonthlyOrdersButton = document.getElementById('exportMonthlyOrdersButton'); // NEW
+        const exportMonthlyOrdersButton = document.getElementById('exportMonthlyOrdersButton');
 
-        // NEW: Referensi DOM Elements untuk ATK Requests
+        // Referensi DOM Elements untuk ATK Requests
         const atkRequestsContainer = document.getElementById('atkRequestsContainer');
 
 
@@ -438,7 +441,7 @@
         const itemsPerPage = 6;
         let allItems = [];
         let filteredItems = [];
-        let notifications = [];
+        let notifications = []; // Ini akan menyimpan notifikasi dari berbagai sumber
 
         // Variabel untuk Kalender dan Pemesanan
         let currentCalendarDate = new Date();
@@ -501,58 +504,50 @@
         }
 
         // --- Fungsi Notifikasi ---
+        // Fungsi ini sekarang hanya akan memicu pembaruan notifikasi dari berbagai sumber
         function generateNotifications() {
-            notifications = [];
-            const lowStockCount = parseInt(lowStockItemsElement.textContent);
-            const outOfStockCount = parseInt(outOfStockItemsElement.textContent);
-
-            if (lowStockCount > 0) {
-                notifications.push({
-                    type: 'warning',
-                    message: `Ada ${lowStockCount} barang dengan stok rendah. Segera periksa!`,
-                    read: false
-                });
-            }
-            if (outOfStockCount > 0) {
-                notifications.push({
-                    type: 'danger',
-                    message: `Ada ${outOfStockCount} barang yang habis. Perlu pemesanan baru!`,
-                    read: false
-                });
-            }
-            // NEW: Panggil fungsi untuk notifikasi permintaan ATK
-            loadAtkRequests(); // Ini akan memuat permintaan dan memicu generateAtkRequestNotifications
-            // updateNotificationDisplay(); // Ini akan dipanggil di dalam loadAtkRequests setelah generateAtkRequestNotifications
+            // Notifikasi stok rendah dan habis akan ditambahkan ke array 'notifications'
+            // dan kemudian updateNotificationDisplay akan dipanggil
+            updateNotificationDisplay();
         }
 
         function updateNotificationDisplay() {
             notificationContent.innerHTML = '';
             let unreadCount = 0;
 
-            if (notifications.length === 0) {
+            // Filter notifikasi yang belum dibaca
+            const unreadNotifications = notifications.filter(notif => !notif.isRead);
+
+            if (unreadNotifications.length === 0) {
                 notificationContent.innerHTML = `<a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Tidak ada notifikasi baru.</a>`;
+                notificationBadge.style.display = 'none';
+                notificationBadge.textContent = '0';
             } else {
-                notifications.forEach((notif, index) => {
-                    if (!notif.read) {
-                        unreadCount++;
-                    }
+                unreadNotifications.forEach((notif, index) => {
                     const notifItem = document.createElement('a');
                     notifItem.href = "#";
-                    notifItem.className = `block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${notif.read ? 'opacity-70' : 'font-semibold'}`;
+                    notifItem.className = `block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 font-semibold`;
                     notifItem.textContent = notif.message;
-                    notifItem.addEventListener('click', (e) => {
+                    notifItem.addEventListener('click', async (e) => {
                         e.preventDefault();
-                        notifications[index].read = true;
-                        updateNotificationDisplay();
+                        // Tandai notifikasi ini sebagai dibaca di Firestore
+                        if (notif.id && notif.source === 'notifications_collection') {
+                            await db.collection("notifications").doc(notif.id).update({ isRead: true });
+                        } else if (notif.id && notif.source === 'atk_requests_notification') {
+                            // Jika notifikasi berasal dari ATK requests, mungkin perlu logika berbeda
+                            // Misalnya, arahkan ke bagian ATK requests dan tandai sebagai 'Reviewed'
+                            // Untuk saat ini, kita hanya menandai notifikasi di array lokal sebagai dibaca
+                            const originalNotifIndex = notifications.findIndex(n => n.id === notif.id && n.source === notif.source);
+                            if (originalNotifIndex !== -1) {
+                                notifications[originalNotifIndex].isRead = true;
+                            }
+                        }
+                        updateNotificationDisplay(); // Perbarui tampilan setelah dibaca
                     });
                     notificationContent.appendChild(notifItem);
                 });
-            }
-
-            if (unreadCount > 0) {
-                notificationBadge.classList.remove('hidden');
-            } else {
-                notificationBadge.classList.add('hidden');
+                notificationBadge.style.display = 'flex';
+                notificationBadge.textContent = unreadNotifications.length;
             }
         }
 
@@ -560,11 +555,47 @@
             notificationPanel.classList.toggle('show');
         }
 
-        function markAllNotificationsAsRead() {
-            notifications.forEach(notif => notif.read = true);
+        async function markAllNotificationsAsRead() {
+            // Tandai notifikasi dari koleksi 'notifications' sebagai dibaca di Firestore
+            const unreadFromCollection = notifications.filter(notif => !notif.isRead && notif.source === 'notifications_collection');
+            const batch = db.batch();
+            unreadFromCollection.forEach(notif => {
+                const notifRef = db.collection("notifications").doc(notif.id);
+                batch.update(notifRef, { isRead: true });
+            });
+            await batch.commit();
+
+            // Tandai notifikasi lokal (misalnya dari stok rendah/habis) sebagai dibaca
+            notifications.forEach(notif => notif.isRead = true);
+
             updateNotificationDisplay();
             notificationPanel.classList.remove('show');
         }
+
+        // --- Listener Real-time untuk Notifikasi dari Koleksi 'notifications' ---
+        db.collection("notifications").where("isRead", "==", false).orderBy("timestamp", "desc")
+            .onSnapshot((snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    const notifData = { id: change.doc.id, ...change.doc.data(), source: 'notifications_collection' };
+                    if (change.type === "added") {
+                        // Tambahkan notifikasi baru ke array
+                        notifications.unshift(notifData); // Tambahkan ke awal agar yang terbaru di atas
+                    } else if (change.type === "modified") {
+                        // Perbarui notifikasi yang dimodifikasi (misalnya, isRead berubah)
+                        const index = notifications.findIndex(n => n.id === notifData.id && n.source === notifData.source);
+                        if (index !== -1) {
+                            notifications[index] = notifData;
+                        }
+                    } else if (change.type === "removed") {
+                        // Hapus notifikasi yang dihapus
+                        notifications = notifications.filter(n => n.id !== notifData.id || n.source !== notifData.source);
+                    }
+                });
+                updateNotificationDisplay(); // Perbarui tampilan notifikasi
+            }, (error) => {
+                console.error("Error listening to notifications collection:", error);
+            });
+
 
         // --- Fungsi CRUD Firebase (office_supplies) ---
 
@@ -610,7 +641,8 @@
                 filterAndDisplayItems();
                 updateSummaryCards();
                 loadLowStockItems();
-                generateNotifications();
+                // Panggil generateNotifications untuk memperbarui notifikasi stok
+                updateStockNotifications();
             } catch (error) {
                 console.error("Error loading items:", error);
                 alert("Gagal memuat item: " + error.message);
@@ -618,6 +650,34 @@
                 lowStockCardsContainer.innerHTML = `<p class="text-sm text-red-500 text-center col-span-full">Gagal memuat data stok rendah.</p>`;
             }
         }
+
+        // Fungsi baru untuk memperbarui notifikasi stok rendah/habis
+        function updateStockNotifications() {
+            // Hapus notifikasi stok lama
+            notifications = notifications.filter(notif => notif.type !== 'warning' && notif.type !== 'danger');
+
+            const lowStockCount = parseInt(lowStockItemsElement.textContent);
+            const outOfStockCount = parseInt(outOfStockItemsElement.textContent);
+
+            if (lowStockCount > 0) {
+                notifications.push({
+                    type: 'warning',
+                    message: `Ada ${lowStockCount} barang dengan stok rendah. Segera periksa!`,
+                    isRead: false,
+                    source: 'stock_alert'
+                });
+            }
+            if (outOfStockCount > 0) {
+                notifications.push({
+                    type: 'danger',
+                    message: `Ada ${outOfStockCount} barang yang habis. Perlu pemesanan baru!`,
+                    isRead: false,
+                    source: 'stock_alert'
+                });
+            }
+            updateNotificationDisplay();
+        }
+
 
         async function editItem(id) {
             const itemToEdit = allItems.find(item => item.id === id);
@@ -758,6 +818,7 @@
                 if (item.stock === 0) {
                     outOfStockCount++;
                 }
+                // Stok rendah jika kurang dari atau sama dengan 15% dari maxStock
                 if (item.stock > 0 && (item.stock / item.maxStock) * 100 <= 15) {
                     lowStockCount++;
                 }
@@ -768,6 +829,7 @@
 
         function loadLowStockItems() {
             lowStockCardsContainer.innerHTML = '';
+            // Tampilkan item yang stoknya kurang dari atau sama dengan 50% dari maxStock
             const lowStockItems = allItems.filter(item => (item.stock / item.maxStock) * 100 <= 50);
 
             if (lowStockItems.length === 0) {
@@ -780,7 +842,7 @@
                 const stockStatusClass = getStockStatus(item.stock, item.maxStock);
                 const badgeText = getStockBadgeText(item.stock, item.maxStock);
                 const badgeColorClass = getStockBadgeColor(item.stock, item.maxStock);
-                const stockColorBase = stockStatusClass.split('-')[0];
+                const stockColorBase = stockStatusClass.split('-')[0]; // 'low', 'medium', 'high'
 
                 card.className = `stock-card ${stockStatusClass} bg-white rounded-lg shadow-sm p-4`;
                 card.innerHTML = `
@@ -1005,7 +1067,22 @@
 
             let selectedOrderItems = [];
 
-            function addOrderItemRow(item = null, quantity = 1) {
+            function updateSelectedOrderItems() {
+                selectedOrderItems = [];
+                orderItemsContainer.querySelectorAll('.flex.items-center.space-x-2').forEach(row => {
+                    const selectElement = row.querySelector('.item-select');
+                    const quantityElement = row.querySelector('.quantity-input');
+                    const itemId = selectElement.value;
+                    const itemName = selectElement.options[selectElement.selectedIndex].text.split(' (Stok:')[0]; // Ambil nama saja
+                    const quantity = parseInt(quantityElement.value);
+
+                    if (itemId && !isNaN(quantity) && quantity > 0) {
+                        selectedOrderItems.push({ id: itemId, name: itemName, quantity: quantity });
+                    }
+                });
+            }
+
+            function addOrderItemRow() {
                 const itemRow = document.createElement('div');
                 itemRow.className = 'flex items-center space-x-2';
                 itemRow.innerHTML = `
@@ -1013,7 +1090,7 @@
                         <option value="">Pilih Barang</option>
                         ${allItems.map(i => `<option value="${i.id}">${i.name} (Stok: ${i.stock})</option>`).join('')}
                     </select>
-                    <input type="number" class="quantity-input shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-20" value="${quantity}" min="1" required>
+                    <input type="number" class="quantity-input shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-20" value="1" min="1" required>
                     <button type="button" class="remove-item-btn text-red-500 hover:text-red-700"><i class="fas fa-times"></i></button>
                 `;
                 orderItemsContainer.appendChild(itemRow);
@@ -1114,8 +1191,8 @@
                     alert("Status pemesanan diperbarui dan stok barang berhasil dikurangi!");
                     await loadItems();
                 }
-                else if (newStatus === "Dibatalkan") { // Modifikasi di sini
-                    // Jika sebelumnya Selesai, kembalikan stok
+                else if (newStatus === "Dibatalkan") {
+                    // Jika status sebelumnya Selesai, kembalikan stok
                     if (oldStatus === "Selesai") {
                         for (const item of orderItems) {
                             const itemRef = db.collection("office_supplies").doc(item.itemId);
@@ -1136,6 +1213,7 @@
                     await loadItems(); // Muat ulang item untuk update stok
                 }
                 else if (newStatus === "Selesai" && oldStatus === "Dibatalkan") {
+                     // Jika status sebelumnya Dibatalkan, dan sekarang Selesai, kurangi stok
                      for (const item of orderItems) {
                         const itemRef = db.collection("office_supplies").doc(item.itemId);
                         const itemDoc = await itemRef.get();
@@ -1254,7 +1332,8 @@
                 const snapshot = await db.collection("atk_requests").orderBy("requestDate", "desc").get();
                 const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 displayAtkRequests(requests);
-                generateAtkRequestNotifications(requests); // Generate notifikasi untuk permintaan ATK
+                // Notifikasi ATK requests sekarang dikelola oleh listener koleksi 'notifications'
+                // generateAtkRequestNotifications(requests); // Ini tidak lagi diperlukan di sini
             } catch (error) {
                 console.error("Error loading ATK requests:", error);
                 atkRequestsContainer.innerHTML = `<p class="text-sm text-red-500 text-center">Gagal memuat permintaan ATK.</p>`;
@@ -1311,20 +1390,6 @@
                 alert("Gagal memperbarui status permintaan ATK: " + error.message);
             }
         }
-
-        // NEW: Fungsi untuk menghasilkan notifikasi permintaan ATK
-        function generateAtkRequestNotifications(requests) {
-            const pendingRequestsCount = requests.filter(req => req.status === "Pending").length;
-            if (pendingRequestsCount > 0) {
-                notifications.push({
-                    type: 'info',
-                    message: `Ada ${pendingRequestsCount} permintaan ATK baru yang menunggu tinjauan.`,
-                    read: false
-                });
-            }
-            updateNotificationDisplay(); // Perbarui tampilan notifikasi utama
-        }
-
 
         // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', function() {
