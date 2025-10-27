@@ -518,6 +518,28 @@
                                         <p class="text-gray-500 mt-2">Memuat permintaan ATK...</p>
                                     </div>
                                 </div>
+
+                                <!-- Pagination untuk Permintaan ATK -->
+                                <div class="bg-gray-50 px-6 py-3 flex items-center justify-between border-t border-gray-200">
+                                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                        <div>
+                                            <p class="text-sm text-gray-700">
+                                                Menampilkan <span id="requestsDisplayStart" class="font-medium">0</span> - <span id="requestsDisplayEnd" class="font-medium">0</span> dari <span id="requestsTotal" class="font-medium">0</span> permintaan
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                                <button id="requestsPrevPage" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                                    <i class="fas fa-chevron-left"></i>
+                                                </button>
+                                                <div id="requestsPaginationNumbers" class="inline-flex"></div>
+                                                <button id="requestsNextPage" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                                    <i class="fas fa-chevron-right"></i>
+                                                </button>
+                                            </nav>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -582,9 +604,11 @@
         let itemsCurrentPage = 1;
         let ordersCurrentPage = 1;
         let lowStockCurrentPage = 1;
+        let requestsCurrentPage = 1; // TAMBAH: Pagination untuk permintaan ATK
         const itemsPerPage = 10;
         const ordersPerPage = 10;
         const lowStockItemsPerPage = 3;
+        const requestsPerPage = 10; // TAMBAH: 10 item per halaman untuk permintaan ATK
 
         // Real-time Listeners
         let unsubscribeItems = null;
@@ -641,6 +665,12 @@
             // Requests
             atkRequestsContainer: document.getElementById('atkRequestsContainer'),
             requestStatusFilter: document.getElementById('requestStatusFilter'),
+            requestsDisplayStart: document.getElementById('requestsDisplayStart'),
+            requestsDisplayEnd: document.getElementById('requestsDisplayEnd'),
+            requestsTotal: document.getElementById('requestsTotal'),
+            requestsPaginationNumbers: document.getElementById('requestsPaginationNumbers'),
+            requestsPrevPage: document.getElementById('requestsPrevPage'),
+            requestsNextPage: document.getElementById('requestsNextPage'),
 
             // Low Stock
             lowStockCards: document.getElementById('lowStockCards'),
@@ -973,9 +1003,13 @@
                 !statusFilter || request.status === statusFilter
             );
 
+            const startIndex = (requestsCurrentPage - 1) * requestsPerPage;
+            const endIndex = startIndex + requestsPerPage;
+            const requestsToDisplay = filteredRequests.slice(startIndex, endIndex);
+
             elements.atkRequestsContainer.innerHTML = '';
 
-            if (filteredRequests.length === 0) {
+            if (requestsToDisplay.length === 0) {
                 elements.atkRequestsContainer.innerHTML = `
                     <div class="text-center py-8">
                         <i class="fas fa-inbox text-gray-400 text-4xl mb-3"></i>
@@ -983,14 +1017,18 @@
                     </div>
                 `;
             } else {
-                filteredRequests.forEach(request => {
+                requestsToDisplay.forEach((request, index) => {
                     const requestDiv = document.createElement('div');
                     requestDiv.className = 'bg-white border border-gray-200 rounded-lg p-4';
+                    const requestNumber = startIndex + index + 1;
                     requestDiv.innerHTML = `
                         <div class="flex justify-between items-start">
                             <div class="flex-1">
                                 <div class="flex items-center justify-between mb-2">
-                                    <h4 class="text-sm font-semibold text-gray-900">${request.itemName}</h4>
+                                    <div class="flex items-center">
+                                        <span class="text-sm font-medium text-gray-500 mr-2">${requestNumber}.</span>
+                                        <h4 class="text-sm font-semibold text-gray-900">${request.itemName}</h4>
+                                    </div>
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRequestStatusClass(request.status)}">
                                         ${getRequestStatusText(request.status)}
                                     </span>
@@ -1026,6 +1064,8 @@
                     btn.addEventListener('click', () => updateRequestStatus(btn.dataset.id, 'Rejected'));
                 });
             }
+
+            updateRequestsPagination(filteredRequests.length);
         }
 
         function displayLowStockItems() {
@@ -1227,6 +1267,34 @@
 
             elements.ordersPrevPage.disabled = ordersCurrentPage === 1;
             elements.ordersNextPage.disabled = ordersCurrentPage === totalPages || totalPages === 0;
+        }
+
+        // TAMBAH: Pagination untuk Permintaan ATK
+        function updateRequestsPagination(totalRequests) {
+            const totalPages = Math.ceil(totalRequests / requestsPerPage);
+            
+            elements.requestsDisplayStart.textContent = totalRequests > 0 ? (requestsCurrentPage - 1) * requestsPerPage + 1 : 0;
+            elements.requestsDisplayEnd.textContent = Math.min(requestsCurrentPage * requestsPerPage, totalRequests);
+            elements.requestsTotal.textContent = totalRequests;
+
+            elements.requestsPaginationNumbers.innerHTML = '';
+            for (let i = 1; i <= totalPages; i++) {
+                const button = document.createElement('button');
+                button.className = `relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                    i === requestsCurrentPage 
+                    ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600' 
+                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                }`;
+                button.textContent = i;
+                button.addEventListener('click', () => {
+                    requestsCurrentPage = i;
+                    displayATKRequests();
+                });
+                elements.requestsPaginationNumbers.appendChild(button);
+            }
+
+            elements.requestsPrevPage.disabled = requestsCurrentPage === 1;
+            elements.requestsNextPage.disabled = requestsCurrentPage === totalPages || totalPages === 0;
         }
 
         // CRUD Operations
@@ -1597,6 +1665,25 @@
                 if (ordersCurrentPage < totalPages) {
                     ordersCurrentPage++;
                     displayOrders();
+                }
+            });
+
+            // TAMBAH: Pagination untuk Permintaan ATK
+            elements.requestsPrevPage.addEventListener('click', () => {
+                if (requestsCurrentPage > 1) {
+                    requestsCurrentPage--;
+                    displayATKRequests();
+                }
+            });
+            elements.requestsNextPage.addEventListener('click', () => {
+                const statusFilter = elements.requestStatusFilter.value;
+                const filteredRequests = allRequests.filter(request => 
+                    !statusFilter || request.status === statusFilter
+                );
+                const totalPages = Math.ceil(filteredRequests.length / requestsPerPage);
+                if (requestsCurrentPage < totalPages) {
+                    requestsCurrentPage++;
+                    displayATKRequests();
                 }
             });
 
