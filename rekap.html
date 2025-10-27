@@ -111,6 +111,25 @@
             color: #991b1b;
         }
 
+        /* Status Permintaan ATK */
+        .request-pending {
+            background-color: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
+        .request-approved {
+            background-color: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .request-rejected {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+
         /* Penyesuaian Tabel */
         .min-w-full th, .min-w-full td {
             padding-left: 1.5rem;
@@ -164,6 +183,16 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        /* Animasi untuk update realtime */
+        .highlight-update {
+            animation: highlight 2s ease-in-out;
+        }
+
+        @keyframes highlight {
+            0% { background-color: rgba(34, 197, 94, 0.3); }
+            100% { background-color: transparent; }
         }
     </style>
 </head>
@@ -230,11 +259,11 @@
                 <div class="bg-white rounded-lg shadow p-6">
                     <div class="flex justify-between items-start">
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Stok Rendah</p>
-                            <h3 id="lowStockItems" class="text-2xl font-bold text-red-600 mt-1">0</h3>
+                            <p class="text-sm font-medium text-gray-500">Permintaan Baru</p>
+                            <h3 id="newRequests" class="text-2xl font-bold text-purple-600 mt-1">0</h3>
                         </div>
-                        <div class="bg-red-100 p-3 rounded-lg">
-                            <i class="fas fa-exclamation-triangle text-red-600 text-lg"></i>
+                        <div class="bg-purple-100 p-3 rounded-lg">
+                            <i class="fas fa-paper-plane text-purple-600 text-lg"></i>
                         </div>
                     </div>
                 </div>
@@ -305,8 +334,8 @@
                                 <span id="monthlyOrders" class="text-sm font-semibold">0</span>
                             </div>
                             <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Rata-rata Pesanan/Hari:</span>
-                                <span id="avgOrdersPerDay" class="text-sm font-semibold">0</span>
+                                <span class="text-sm text-gray-600">Stok Rendah (≤20%):</span>
+                                <span id="lowStockItems" class="text-sm font-semibold text-yellow-600">0</span>
                             </div>
                         </div>
                     </div>
@@ -469,10 +498,18 @@
                             <!-- Tab 3: Permintaan ATK -->
                             <div id="tabContentRequests" class="tab-content hidden">
                                 <div class="flex justify-between items-center mb-4">
-                                    <h3 class="text-lg font-semibold text-gray-800">Permintaan ATK Baru</h3>
-                                    <button id="exportRequestsButton" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center">
-                                        <i class="fas fa-file-excel mr-2"></i>Export
-                                    </button>
+                                    <h3 class="text-lg font-semibold text-gray-800">Semua Permintaan ATK</h3>
+                                    <div class="flex space-x-2">
+                                        <select id="requestStatusFilter" class="border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                            <option value="">Semua Status</option>
+                                            <option value="Pending">Pending</option>
+                                            <option value="Approved">Disetujui</option>
+                                            <option value="Rejected">Ditolak</option>
+                                        </select>
+                                        <button id="exportRequestsButton" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center">
+                                            <i class="fas fa-file-excel mr-2"></i>Export
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div id="atkRequestsContainer" class="space-y-4">
@@ -488,7 +525,7 @@
                     <!-- Low Stock Alert dengan Pagination -->
                     <div class="bg-white rounded-lg shadow overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                            <h2 class="text-lg font-semibold text-gray-800">Barang Stok Rendah</h2>
+                            <h2 class="text-lg font-semibold text-gray-800">Barang Stok Rendah (≤20%)</h2>
                             <div class="flex items-center space-x-2">
                                 <span class="text-sm text-gray-600">
                                     Halaman <span id="lowStockCurrentPage" class="font-medium">1</span> dari <span id="lowStockTotalPages" class="font-medium">1</span>
@@ -547,7 +584,12 @@
         let lowStockCurrentPage = 1;
         const itemsPerPage = 10;
         const ordersPerPage = 10;
-        const lowStockItemsPerPage = 3; // Hanya 3 item per halaman untuk stok rendah
+        const lowStockItemsPerPage = 3;
+
+        // Real-time Listeners
+        let unsubscribeItems = null;
+        let unsubscribeOrders = null;
+        let unsubscribeRequests = null;
 
         // DOM Elements
         const elements = {
@@ -555,11 +597,11 @@
             totalItems: document.getElementById('totalItems'),
             totalOrders: document.getElementById('totalOrders'),
             newOrders: document.getElementById('newOrders'),
-            lowStockItems: document.getElementById('lowStockItems'),
+            newRequests: document.getElementById('newRequests'),
             outOfStockItems: document.getElementById('outOfStockItems'),
+            lowStockItems: document.getElementById('lowStockItems'),
             totalCategories: document.getElementById('totalCategories'),
             monthlyOrders: document.getElementById('monthlyOrders'),
-            avgOrdersPerDay: document.getElementById('avgOrdersPerDay'),
 
             // Calendar
             currentMonthYear: document.getElementById('currentMonthYear'),
@@ -598,6 +640,7 @@
 
             // Requests
             atkRequestsContainer: document.getElementById('atkRequestsContainer'),
+            requestStatusFilter: document.getElementById('requestStatusFilter'),
 
             // Low Stock
             lowStockCards: document.getElementById('lowStockCards'),
@@ -646,7 +689,6 @@
         function getStockStatus(stock, maxStock) {
             if (stock === 0) return { status: 'Habis', class: 'text-red-600 bg-red-100', color: 'red' };
             const percentage = (stock / maxStock) * 100;
-            // PERUBAHAN: Stok rendah sekarang 20% (sebelumnya 15%)
             if (percentage <= 20) return { status: 'Rendah', class: 'text-red-600 bg-red-100', color: 'red' };
             if (percentage <= 50) return { status: 'Sedang', class: 'text-yellow-600 bg-yellow-100', color: 'yellow' };
             return { status: 'Cukup', class: 'text-green-600 bg-green-100', color: 'green' };
@@ -657,74 +699,90 @@
                 'Baru': 'status-badge status-new',
                 'Diproses': 'status-badge status-processing',
                 'Selesai': 'status-badge status-completed',
-                'Dibatalkan': 'status-badge status-cancelled',
-                'Pending': 'status-badge status-new',
-                'Reviewed': 'status-badge status-processing',
-                'Approved': 'status-badge status-completed',
-                'Rejected': 'status-badge status-cancelled'
+                'Dibatalkan': 'status-badge status-cancelled'
             };
             return classes[status] || 'status-badge status-new';
         }
 
-        // Firebase Operations
-        async function loadAllData() {
-            try {
-                await Promise.all([
-                    loadItems(),
-                    loadOrders(),
-                    loadATKRequests()
-                ]);
-                updateSummaryCards();
-                renderCalendar();
-                displayLowStockItems(); // Tampilkan stok rendah setelah data dimuat
-            } catch (error) {
-                console.error('Error loading data:', error);
-                alert('Gagal memuat data: ' + error.message);
-            }
+        function getRequestStatusClass(status) {
+            const classes = {
+                'Pending': 'request-pending',
+                'Approved': 'request-approved',
+                'Rejected': 'request-rejected'
+            };
+            return classes[status] || 'request-pending';
         }
 
-        async function loadItems() {
-            try {
-                const snapshot = await db.collection("office_supplies").orderBy("name").get();
-                allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                displayItems();
-            } catch (error) {
-                console.error("Error loading items:", error);
-                throw error;
-            }
+        function getRequestStatusText(status) {
+            const texts = {
+                'Pending': 'Menunggu',
+                'Approved': 'Disetujui',
+                'Rejected': 'Ditolak'
+            };
+            return texts[status] || status;
         }
 
-        async function loadOrders() {
-            try {
-                const snapshot = await db.collection("orders").orderBy("createdAt", "desc").get();
-                allOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                // Process orders for calendar
-                ordersData = {};
-                allOrders.forEach(order => {
-                    const orderDate = order.orderDate.toDate();
-                    const dateString = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}-${String(orderDate.getDate()).padStart(2, '0')}`;
-                    if (!ordersData[dateString]) {
-                        ordersData[dateString] = [];
-                    }
-                    ordersData[dateString].push(order);
+        // Real-time Listeners Setup
+        function setupRealTimeListeners() {
+            // Real-time listener untuk items
+            unsubscribeItems = db.collection("office_supplies")
+                .orderBy("name")
+                .onSnapshot((snapshot) => {
+                    allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    displayItems();
+                    displayLowStockItems();
+                    updateSummaryCards();
+                    highlightUpdate('itemsTableBody');
+                }, (error) => {
+                    console.error("Error in items listener:", error);
                 });
-                
-                displayOrders();
-            } catch (error) {
-                console.error("Error loading orders:", error);
-                throw error;
-            }
+
+            // Real-time listener untuk orders
+            unsubscribeOrders = db.collection("orders")
+                .orderBy("createdAt", "desc")
+                .onSnapshot((snapshot) => {
+                    allOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    
+                    // Process orders for calendar
+                    ordersData = {};
+                    allOrders.forEach(order => {
+                        const orderDate = order.orderDate.toDate();
+                        const dateString = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}-${String(orderDate.getDate()).padStart(2, '0')}`;
+                        if (!ordersData[dateString]) {
+                            ordersData[dateString] = [];
+                        }
+                        ordersData[dateString].push(order);
+                    });
+                    
+                    displayOrders();
+                    updateSummaryCards();
+                    renderCalendar();
+                    highlightUpdate('ordersTableBody');
+                }, (error) => {
+                    console.error("Error in orders listener:", error);
+                });
+
+            // Real-time listener untuk ATK requests
+            unsubscribeRequests = db.collection("atk_requests")
+                .orderBy("requestDate", "desc")
+                .onSnapshot((snapshot) => {
+                    allRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    displayATKRequests();
+                    updateSummaryCards();
+                    highlightUpdate('atkRequestsContainer');
+                }, (error) => {
+                    console.error("Error in requests listener:", error);
+                });
         }
 
-        async function loadATKRequests() {
-            try {
-                const snapshot = await db.collection("atk_requests").orderBy("requestDate", "desc").get();
-                allRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                displayATKRequests();
-            } catch (error) {
-                console.error("Error loading ATK requests:", error);
-                throw error;
+        // Highlight animation for real-time updates
+        function highlightUpdate(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.classList.add('highlight-update');
+                setTimeout(() => {
+                    element.classList.remove('highlight-update');
+                }, 2000);
             }
         }
 
@@ -755,7 +813,6 @@
                     const stockInfo = getStockStatus(item.stock, item.maxStock);
                     const row = document.createElement('tr');
                     row.className = 'hover:bg-gray-50';
-                    // PERUBAHAN: Menampilkan nomor urut
                     const itemNumber = startIndex + index + 1;
                     row.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -821,8 +878,7 @@
             const filteredOrders = allOrders.filter(order => {
                 const matchesSearch = 
                     order.customerName.toLowerCase().includes(searchTerm) ||
-                    order.department.toLowerCase().includes(searchTerm) ||
-                    order.id.toLowerCase().includes(searchTerm);
+                    order.department.toLowerCase().includes(searchTerm);
                 const matchesStatus = !statusFilter || order.status === statusFilter;
                 return matchesSearch && matchesStatus;
             });
@@ -849,7 +905,6 @@
                     
                     const row = document.createElement('tr');
                     row.className = 'hover:bg-gray-50';
-                    // PERUBAHAN: Menampilkan nomor urut bukan ID
                     const orderNumber = startIndex + index + 1;
                     row.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -912,38 +967,52 @@
         }
 
         function displayATKRequests() {
-            const pendingRequests = allRequests.filter(req => req.status === 'Pending');
+            const statusFilter = elements.requestStatusFilter.value;
             
+            const filteredRequests = allRequests.filter(request => 
+                !statusFilter || request.status === statusFilter
+            );
+
             elements.atkRequestsContainer.innerHTML = '';
 
-            if (pendingRequests.length === 0) {
+            if (filteredRequests.length === 0) {
                 elements.atkRequestsContainer.innerHTML = `
                     <div class="text-center py-8">
                         <i class="fas fa-inbox text-gray-400 text-4xl mb-3"></i>
-                        <p class="text-gray-500">Tidak ada permintaan ATK baru</p>
+                        <p class="text-gray-500">Tidak ada permintaan ATK</p>
                     </div>
                 `;
             } else {
-                pendingRequests.forEach(request => {
+                filteredRequests.forEach(request => {
                     const requestDiv = document.createElement('div');
                     requestDiv.className = 'bg-white border border-gray-200 rounded-lg p-4';
                     requestDiv.innerHTML = `
                         <div class="flex justify-between items-start">
                             <div class="flex-1">
-                                <h4 class="text-sm font-semibold text-gray-900">${request.itemName}</h4>
-                                <p class="text-sm text-gray-600 mt-1">Jumlah: ${request.quantity}</p>
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-sm font-semibold text-gray-900">${request.itemName}</h4>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRequestStatusClass(request.status)}">
+                                        ${getRequestStatusText(request.status)}
+                                    </span>
+                                </div>
+                                <p class="text-sm text-gray-600">Jumlah: ${request.quantity}</p>
                                 <p class="text-xs text-gray-500 mt-1">Oleh: ${request.requesterName} (${request.department})</p>
                                 <p class="text-xs text-gray-500">Catatan: ${request.notes || 'Tidak ada catatan'}</p>
                                 <p class="text-xs text-gray-500 mt-2">Diajukan: ${formatDateTime(request.requestDate)}</p>
+                                ${request.reviewedAt ? `
+                                    <p class="text-xs text-gray-500 mt-1">Ditinjau: ${formatDateTime(request.reviewedAt)}</p>
+                                ` : ''}
                             </div>
-                            <div class="flex space-x-2 ml-4">
-                                <button class="approve-request bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm" data-id="${request.id}">
-                                    Setujui
-                                </button>
-                                <button class="reject-request bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm" data-id="${request.id}">
-                                    Tolak
-                                </button>
-                            </div>
+                            ${request.status === 'Pending' ? `
+                                <div class="flex space-x-2 ml-4">
+                                    <button class="approve-request bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm" data-id="${request.id}">
+                                        Setujui
+                                    </button>
+                                    <button class="reject-request bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm" data-id="${request.id}">
+                                        Tolak
+                                    </button>
+                                </div>
+                            ` : ''}
                         </div>
                     `;
                     elements.atkRequestsContainer.appendChild(requestDiv);
@@ -960,7 +1029,6 @@
         }
 
         function displayLowStockItems() {
-            // PERUBAHAN: Stok rendah sekarang 20% (sebelumnya 15%)
             const lowStockItems = allItems.filter(item => 
                 item.stock > 0 && (item.stock / item.maxStock) * 100 <= 20
             );
@@ -1179,7 +1247,6 @@
                     lastPurchased: firebase.firestore.FieldValue.serverTimestamp(),
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                await loadItems();
                 alert('Barang berhasil ditambahkan!');
             } catch (error) {
                 console.error('Error adding item:', error);
@@ -1204,7 +1271,6 @@
                     maxStock: maxStock,
                     lastPurchased: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                await loadItems();
                 alert('Barang berhasil diperbarui!');
             } catch (error) {
                 console.error('Error updating item:', error);
@@ -1217,7 +1283,6 @@
 
             try {
                 await db.collection("office_supplies").doc(itemId).delete();
-                await loadItems();
                 alert('Barang berhasil dihapus!');
             } catch (error) {
                 console.error('Error deleting item:', error);
@@ -1231,7 +1296,6 @@
                     status: newStatus,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                await loadOrders();
             } catch (error) {
                 console.error('Error updating order status:', error);
                 alert('Gagal mengupdate status pesanan: ' + error.message);
@@ -1243,7 +1307,6 @@
 
             try {
                 await db.collection("orders").doc(orderId).delete();
-                await loadOrders();
                 alert('Pesanan berhasil dihapus!');
             } catch (error) {
                 console.error('Error deleting order:', error);
@@ -1257,7 +1320,6 @@
                     status: newStatus,
                     reviewedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                await loadATKRequests();
                 alert(`Permintaan berhasil ${newStatus === 'Approved' ? 'disetujui' : 'ditolak'}!`);
             } catch (error) {
                 console.error('Error updating request status:', error);
@@ -1270,7 +1332,6 @@
             // Items statistics
             elements.totalItems.textContent = allItems.length;
             
-            // PERUBAHAN: Stok rendah sekarang 20% (sebelumnya 15%)
             const lowStockCount = allItems.filter(item => 
                 item.stock > 0 && (item.stock / item.maxStock) * 100 <= 20
             ).length;
@@ -1280,6 +1341,9 @@
             // Orders statistics
             elements.totalOrders.textContent = allOrders.length;
             elements.newOrders.textContent = allOrders.filter(order => order.status === 'Baru').length;
+
+            // Requests statistics
+            elements.newRequests.textContent = allRequests.filter(request => request.status === 'Pending').length;
 
             // Additional statistics
             const categories = [...new Set(allItems.map(item => item.category))];
@@ -1292,14 +1356,6 @@
                 return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
             });
             elements.monthlyOrders.textContent = monthlyOrders.length;
-
-            // Average orders per day (last 30 days)
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const recentOrders = allOrders.filter(order => 
-                order.orderDate.toDate() > thirtyDaysAgo
-            );
-            elements.avgOrdersPerDay.textContent = (recentOrders.length / 30).toFixed(1);
         }
 
         // Export Functions
@@ -1311,8 +1367,8 @@
         }
 
         function exportItems() {
-            const data = allItems.map(item => ({
-                'No': allItems.indexOf(item) + 1,
+            const data = allItems.map((item, index) => ({
+                'No': index + 1,
                 'Nama Barang': item.name,
                 'Kategori': item.category,
                 'Stok': item.stock,
@@ -1344,14 +1400,14 @@
                 'Pemohon': request.requesterName,
                 'Departemen': request.department,
                 'Catatan': request.notes || '',
-                'Status': request.status,
-                'Tanggal Permintaan': formatDateTime(request.requestDate)
+                'Status': getRequestStatusText(request.status),
+                'Tanggal Permintaan': formatDateTime(request.requestDate),
+                'Tanggal Ditinjau': request.reviewedAt ? formatDateTime(request.reviewedAt) : ''
             }));
             exportToExcel(data, 'data_permintaan', 'Permintaan');
         }
 
         function exportLowStock() {
-            // PERUBAHAN: Stok rendah sekarang 20% (sebelumnya 15%)
             const lowStockItems = allItems.filter(item => 
                 item.stock > 0 && (item.stock / item.maxStock) * 100 <= 20
             );
@@ -1404,8 +1460,9 @@
                 'Pemohon': request.requesterName,
                 'Departemen': request.department,
                 'Catatan': request.notes || '',
-                'Status': request.status,
-                'Tanggal Permintaan': formatDateTime(request.requestDate)
+                'Status': getRequestStatusText(request.status),
+                'Tanggal Permintaan': formatDateTime(request.requestDate),
+                'Tanggal Ditinjau': request.reviewedAt ? formatDateTime(request.reviewedAt) : ''
             }));
             const requestsWs = XLSX.utils.json_to_sheet(requestsData);
             XLSX.utils.book_append_sheet(wb, requestsWs, 'Data Permintaan');
@@ -1513,6 +1570,7 @@
             elements.searchItem.addEventListener('input', displayItems);
             elements.searchOrder.addEventListener('input', displayOrders);
             elements.statusFilter.addEventListener('change', displayOrders);
+            elements.requestStatusFilter.addEventListener('change', displayATKRequests);
 
             // Pagination
             elements.itemsPrevPage.addEventListener('click', () => {
@@ -1550,7 +1608,6 @@
                 }
             });
             elements.lowStockNextPage.addEventListener('click', () => {
-                // PERUBAHAN: Stok rendah sekarang 20% (sebelumnya 15%)
                 const lowStockItems = allItems.filter(item => 
                     item.stock > 0 && (item.stock / item.maxStock) * 100 <= 20
                 );
@@ -1580,6 +1637,11 @@
             elements.exportAllData.addEventListener('click', exportAllData);
             elements.logoutButton.addEventListener('click', () => {
                 if (confirm('Apakah Anda yakin ingin logout?')) {
+                    // Unsubscribe dari real-time listeners
+                    if (unsubscribeItems) unsubscribeItems();
+                    if (unsubscribeOrders) unsubscribeOrders();
+                    if (unsubscribeRequests) unsubscribeRequests();
+                    
                     auth.signOut().then(() => {
                         window.location.href = 'login.html';
                     });
@@ -1619,7 +1681,8 @@
                 window.location.href = 'login.html';
             } else {
                 initializeEventListeners();
-                loadAllData();
+                setupRealTimeListeners();
+                renderCalendar();
             }
         });
 
