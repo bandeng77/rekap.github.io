@@ -13,7 +13,6 @@
     <!-- SheetJS (js-xlsx) for Excel export -->
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <style>
-        /* CSS Tetap Sama Seperti Sebelumnya */
         :root {
             --primary: #4f46e5;
             --secondary: #10b981;
@@ -731,41 +730,28 @@
             return texts[status] || status;
         }
 
-        // Real-time Listeners Setup - DIPERBAIKI
+        // Real-time Listeners Setup
         function setupRealTimeListeners() {
-            // Real-time listener untuk items - GUNAKAN office_supplies
+            // Real-time listener untuk items
             unsubscribeItems = db.collection("office_supplies")
                 .orderBy("name")
                 .onSnapshot((snapshot) => {
                     allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    console.log("Items loaded:", allItems.length);
                     displayItems();
                     displayLowStockItems();
                     updateSummaryCards();
                     highlightUpdate('itemsTableBody');
                 }, (error) => {
                     console.error("Error in items listener:", error);
-                    // Fallback: coba koleksi 'items' jika 'office_supplies' tidak ada
-                    if (error.code === 'not-found') {
-                        console.log("Mencoba koleksi 'items' sebagai fallback...");
-                        unsubscribeItems = db.collection("items")
-                            .orderBy("name")
-                            .onSnapshot((snapshot) => {
-                                allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                                displayItems();
-                                displayLowStockItems();
-                                updateSummaryCards();
-                                highlightUpdate('itemsTableBody');
-                            }, (error) => {
-                                console.error("Error in items fallback listener:", error);
-                            });
-                    }
                 });
 
-            // Real-time listener untuk orders - SUDAH BENAR
+            // Real-time listener untuk orders
             unsubscribeOrders = db.collection("orders")
                 .orderBy("createdAt", "desc")
                 .onSnapshot((snapshot) => {
                     allOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    console.log("Orders loaded:", allOrders.length);
                     
                     // Process orders for calendar
                     ordersData = {};
@@ -788,30 +774,17 @@
                     console.error("Error in orders listener:", error);
                 });
 
-            // Real-time listener untuk ATK requests - DIPERBAIKI
+            // Real-time listener untuk ATK requests
             unsubscribeRequests = db.collection("atk_requests")
                 .orderBy("requestDate", "desc")
                 .onSnapshot((snapshot) => {
                     allRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    console.log("Requests loaded:", allRequests.length);
                     displayATKRequests();
                     updateSummaryCards();
                     highlightUpdate('atkRequestsContainer');
                 }, (error) => {
                     console.error("Error in requests listener:", error);
-                    // Fallback: coba koleksi 'atkRequests' jika 'atk_requests' tidak ada
-                    if (error.code === 'not-found') {
-                        console.log("Mencoba koleksi 'atkRequests' sebagai fallback...");
-                        unsubscribeRequests = db.collection("atkRequests")
-                            .orderBy("requestDate", "desc")
-                            .onSnapshot((snapshot) => {
-                                allRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                                displayATKRequests();
-                                updateSummaryCards();
-                                highlightUpdate('atkRequestsContainer');
-                            }, (error) => {
-                                console.error("Error in requests fallback listener:", error);
-                            });
-                    }
                 });
         }
 
@@ -1306,7 +1279,7 @@
             elements.requestsNextPage.disabled = requestsCurrentPage === totalPages || totalPages === 0;
         }
 
-        // CRUD Operations - DIPERBAIKI dengan update stok
+        // CRUD Operations dengan PERBAIKAN UPDATE STOK
         async function addItem() {
             const name = prompt('Nama barang:');
             if (!name) return;
@@ -1367,12 +1340,14 @@
             }
         }
 
-        // FUNGSI BARU: Update stok ketika pesanan selesai
+        // FUNGSI UTAMA: Update stok ketika pesanan selesai - DIPERBAIKI
         async function updateStockOnOrderCompletion(orderId, newStatus) {
             if (newStatus !== 'Selesai') return;
             
             try {
-                // Ambil data pesanan
+                console.log(`Memproses update stok untuk pesanan: ${orderId}`);
+                
+                // Ambil data pesanan terbaru
                 const orderDoc = await db.collection("orders").doc(orderId).get();
                 if (!orderDoc.exists) {
                     console.error('Pesanan tidak ditemukan');
@@ -1380,20 +1355,54 @@
                 }
                 
                 const order = orderDoc.data();
+                console.log('Data pesanan:', order);
                 
+                if (!order.items || order.items.length === 0) {
+                    console.log('Pesanan tidak memiliki items');
+                    return;
+                }
+
                 // Validasi stok sebelum mengurangi
                 const insufficientStock = [];
+                const batch = db.batch();
+                
                 for (const item of order.items) {
-                    const itemDoc = await db.collection("office_supplies").doc(item.id).get();
-                    if (itemDoc.exists) {
-                        const currentItem = itemDoc.data();
-                        if (currentItem.stock < item.quantity) {
-                            insufficientStock.push({
-                                name: item.name,
-                                required: item.quantity,
-                                available: currentItem.stock
-                            });
-                        }
+                    console.log('Memproses item:', item);
+                    
+                    // Cari item di database berdasarkan nama (karena mungkin tidak ada item.id)
+                    const itemsQuery = await db.collection("office_supplies")
+                        .where("name", "==", item.name)
+                        .get();
+                    
+                    if (itemsQuery.empty) {
+                        console.warn(`Item tidak ditemukan: ${item.name}`);
+                        insufficientStock.push({
+                            name: item.name,
+                            required: item.quantity,
+                            available: 0
+                        });
+                        continue;
+                    }
+                    
+                    const itemDoc = itemsQuery.docs[0];
+                    const currentItem = itemDoc.data();
+                    console.log(`Stok saat ini untuk ${item.name}:`, currentItem.stock);
+                    
+                    if (currentItem.stock < item.quantity) {
+                        insufficientStock.push({
+                            name: item.name,
+                            required: item.quantity,
+                            available: currentItem.stock
+                        });
+                    } else {
+                        // Kurangi stok
+                        const newStock = currentItem.stock - item.quantity;
+                        console.log(`Mengurangi stok ${item.name} dari ${currentItem.stock} menjadi ${newStock}`);
+                        
+                        batch.update(itemDoc.ref, { 
+                            stock: newStock,
+                            lastPurchased: firebase.firestore.FieldValue.serverTimestamp()
+                        });
                     }
                 }
                 
@@ -1401,7 +1410,7 @@
                 if (insufficientStock.length > 0) {
                     let errorMessage = 'Stok tidak cukup untuk menyelesaikan pesanan:\n';
                     insufficientStock.forEach(item => {
-                        errorMessage += `- ${item.name}: Diperlukan ${item.required}, Tersedia ${item.available}\n`;
+                        errorMessage += `- ${item.name}: Diperlukan ${item.quantity}, Tersedia ${item.available}\n`;
                     });
                     alert(errorMessage);
                     
@@ -1412,25 +1421,9 @@
                     return;
                 }
                 
-                // Kurangi stok untuk setiap item
-                const batch = db.batch();
-                for (const item of order.items) {
-                    const itemRef = db.collection("office_supplies").doc(item.id);
-                    const itemDoc = await itemRef.get();
-                    
-                    if (itemDoc.exists) {
-                        const currentItem = itemDoc.data();
-                        const newStock = currentItem.stock - item.quantity;
-                        
-                        batch.update(itemRef, { 
-                            stock: newStock,
-                            lastPurchased: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    }
-                }
-                
+                // Commit batch update stok
                 await batch.commit();
-                console.log('Stok berhasil diperbarui untuk pesanan:', orderId);
+                console.log('Stok berhasil diperbarui untuk semua item dalam pesanan:', orderId);
                 
             } catch (error) {
                 console.error('Error memperbarui stok:', error);
@@ -1440,6 +1433,8 @@
 
         async function updateOrderStatus(orderId, newStatus) {
             try {
+                console.log(`Mengupdate status pesanan ${orderId} menjadi ${newStatus}`);
+                
                 // Update status pesanan
                 await db.collection("orders").doc(orderId).update({
                     status: newStatus,
@@ -1448,8 +1443,11 @@
 
                 // Jika status berubah menjadi "Selesai", kurangi stok
                 if (newStatus === 'Selesai') {
+                    console.log('Memanggil updateStockOnOrderCompletion...');
                     await updateStockOnOrderCompletion(orderId, newStatus);
                 }
+                
+                console.log(`Status pesanan ${orderId} berhasil diubah menjadi ${newStatus}`);
                 
             } catch (error) {
                 console.error('Error updating order status:', error);
@@ -1514,7 +1512,7 @@
             elements.monthlyOrders.textContent = monthlyOrders.length;
         }
 
-        // Export Functions (tetap sama)
+        // Export Functions
         function exportToExcel(data, filename, sheetName) {
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
@@ -1626,7 +1624,7 @@
             XLSX.writeFile(wb, 'data_lengkap_sistem_atk.xlsx');
         }
 
-        // Modal Functions (tetap sama)
+        // Modal Functions
         function showOrderDetails(order) {
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
