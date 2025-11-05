@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Alat Tulis Kantor (Tamu)</title>
+    <title>Dashboard Alat Tulis Kantor (Tamu) - Real-time</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Firebase SDK -->
@@ -141,6 +141,16 @@
         .order-items-container::-webkit-scrollbar-thumb:hover {
             background: #a8a8a8;
         }
+
+        /* Animasi untuk update real-time */
+        @keyframes highlightUpdate {
+            0% { background-color: rgba(16, 185, 129, 0.3); }
+            100% { background-color: transparent; }
+        }
+        
+        .updated-item {
+            animation: highlightUpdate 2s ease;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -149,10 +159,17 @@
         <header class="bg-white shadow-sm">
             <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
                 <div class="flex items-center">
-                    <img src="genetek-logo.png" alt="Logo GENETEK" class="w-10 h-10 rounded-full">
-                    <h1 class="text-xl font-semibold text-gray-800">Dashboard - Inventory Alat Tulis Kantor (Tamu)</h1>
+                    <div class="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold">
+                        G
+                    </div>
+                    <h1 class="text-xl font-semibold text-gray-800 ml-3">Dashboard - Inventory Alat Tulis Kantor (Tamu) <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full ml-2">Real-time</span></h1>
                 </div>
                 <div class="flex items-center space-x-4">
+                    <!-- Status koneksi real-time -->
+                    <div id="connectionStatus" class="flex items-center text-sm text-gray-500">
+                        <i class="fas fa-circle text-green-500 mr-1"></i>
+                        <span>Terhubung Real-time</span>
+                    </div>
                     <!-- Link ke halaman permintaan ATK -->
                     <a href="guest.html" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center">
                         <i class="fas fa-paper-plane mr-2"></i>Ajukan Permintaan ATK
@@ -277,7 +294,7 @@
                     <div class="bg-white rounded-lg shadow overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-200">
                             <div class="flex justify-between items-center">
-                                <h2 class="text-lg font-semibold text-gray-800">Daftar Alat Tulis Kantor</h2>
+                                <h2 class="text-lg font-semibold text-gray-800">Daftar Alat Tulis Kantor <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Update Real-time</span></h2>
                                 <div class="flex space-x-2">
                                     <div class="relative">
                                         <input type="text" id="searchItem" placeholder="Cari barang..." class="pl-8 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
@@ -398,7 +415,8 @@
         const outOfStockItemsElement = document.getElementById('outOfStockItems');
         const searchInput = document.getElementById('searchItem');
         const selectedDayOrdersContainer = document.getElementById('selectedDayOrders');
-        const addOrderButton = document.getElementById('addOrderButton'); // TAMBAH: Tombol tambah pesanan
+        const addOrderButton = document.getElementById('addOrderButton');
+        const connectionStatus = document.getElementById('connectionStatus');
 
         // Variabel untuk Pagination Daftar Barang
         let currentPage = 1;
@@ -414,6 +432,10 @@
         // Variabel untuk Kalender dan Pemesanan
         let currentCalendarDate = new Date();
         let ordersData = {};
+
+        // Variabel untuk real-time listeners
+        let itemsUnsubscribe = null;
+        let ordersUnsubscribe = null;
 
         // --- Fungsi Utilitas ---
         function formatDate(date) {
@@ -453,24 +475,134 @@
             return 'text-green-600 bg-green-100';
         }
 
-        // --- Fungsi CRUD Firebase (office_supplies) ---
+        // --- Fungsi untuk Real-time Updates ---
 
-        // READ: Memuat semua item dari Firestore
-        async function loadItems() {
+        // Fungsi untuk menandai item yang baru di-update
+        function highlightUpdatedItem(itemId) {
+            const rows = document.querySelectorAll('#itemsTableBody tr');
+            rows.forEach(row => {
+                if (row.dataset.itemId === itemId) {
+                    row.classList.add('updated-item');
+                    setTimeout(() => {
+                        row.classList.remove('updated-item');
+                    }, 2000);
+                }
+            });
+
+            // Juga highlight di low stock cards
+            const cards = document.querySelectorAll('#lowStockCards .stock-card');
+            cards.forEach(card => {
+                if (card.dataset.itemId === itemId) {
+                    card.classList.add('updated-item');
+                    setTimeout(() => {
+                        card.classList.remove('updated-item');
+                    }, 2000);
+                }
+            });
+        }
+
+        // UPDATE: Fungsi loadItems dengan real-time listener
+        function loadItems() {
             itemsTableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">Memuat data...</td></tr>`;
             lowStockCardsContainer.innerHTML = `<p class="text-sm text-gray-500 text-center col-span-full">Memuat data...</p>`;
 
+            // Hapus listener sebelumnya jika ada
+            if (itemsUnsubscribe) {
+                itemsUnsubscribe();
+            }
+
             try {
-                const snapshot = await db.collection("office_supplies").orderBy("name").get();
-                allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                filterAndDisplayItems();
-                updateSummaryCards();
-                loadLowStockItems();
+                // Gunakan onSnapshot untuk real-time updates
+                itemsUnsubscribe = db.collection("office_supplies").orderBy("name").onSnapshot(
+                    (snapshot) => {
+                        console.log("Data items diperbarui:", snapshot.size, "items");
+                        
+                        // Update status koneksi
+                        updateConnectionStatus(true);
+                        
+                        allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        
+                        // Periksa perubahan dan highlight item yang berubah
+                        snapshot.docChanges().forEach(change => {
+                            if (change.type === 'modified') {
+                                highlightUpdatedItem(change.doc.id);
+                            }
+                        });
+                        
+                        filterAndDisplayItems();
+                        updateSummaryCards();
+                        loadLowStockItems();
+                    },
+                    (error) => {
+                        console.error("Error real-time items:", error);
+                        updateConnectionStatus(false);
+                        itemsTableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 whitespace-nowrap text-center text-red-500">Gagal memuat data. Cek koneksi atau konfigurasi Firebase.</td></tr>`;
+                        lowStockCardsContainer.innerHTML = `<p class="text-sm text-red-500 text-center col-span-full">Gagal memuat data stok rendah.</p>`;
+                    }
+                );
             } catch (error) {
-                console.error("Error loading items:", error);
+                console.error("Error setting up real-time listener:", error);
+                updateConnectionStatus(false);
                 alert("Gagal memuat item: " + error.message);
-                itemsTableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 whitespace-nowrap text-center text-red-500">Gagal memuat data. Cek koneksi atau konfigurasi Firebase.</td></tr>`;
-                lowStockCardsContainer.innerHTML = `<p class="text-sm text-red-500 text-center col-span-full">Gagal memuat data stok rendah.</p>`;
+            }
+        }
+
+        // UPDATE: Fungsi loadOrders dengan real-time listener
+        function loadOrders() {
+            // Hapus listener sebelumnya jika ada
+            if (ordersUnsubscribe) {
+                ordersUnsubscribe();
+            }
+
+            try {
+                // Gunakan onSnapshot untuk real-time updates
+                ordersUnsubscribe = db.collection("orders").onSnapshot(
+                    (snapshot) => {
+                        console.log("Data orders diperbarui:", snapshot.size, "orders");
+                        
+                        // Update status koneksi
+                        updateConnectionStatus(true);
+                        
+                        ordersData = {};
+                        snapshot.docs.forEach(doc => {
+                            const order = { id: doc.id, ...doc.data() };
+                            const orderDate = order.orderDate.toDate();
+                            const dateString = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}-${String(orderDate.getDate()).padStart(2, '0')}`;
+                            if (!ordersData[dateString]) {
+                                ordersData[dateString] = [];
+                            }
+                            ordersData[dateString].push(order);
+                        });
+                        renderCalendar();
+                        updateSelectedDayOrders(new Date());
+                    },
+                    (error) => {
+                        console.error("Error real-time orders:", error);
+                        updateConnectionStatus(false);
+                        alert("Gagal memuat pemesanan: " + error.message);
+                    }
+                );
+            } catch (error) {
+                console.error("Error setting up real-time listener for orders:", error);
+                updateConnectionStatus(false);
+            }
+        }
+
+        // Fungsi untuk update status koneksi
+        function updateConnectionStatus(isConnected) {
+            const statusIcon = connectionStatus.querySelector('i');
+            const statusText = connectionStatus.querySelector('span');
+            
+            if (isConnected) {
+                statusIcon.className = 'fas fa-circle text-green-500 mr-1';
+                statusText.textContent = 'Terhubung Real-time';
+                connectionStatus.classList.remove('text-red-500');
+                connectionStatus.classList.add('text-green-500');
+            } else {
+                statusIcon.className = 'fas fa-circle text-red-500 mr-1';
+                statusText.textContent = 'Koneksi Terputus';
+                connectionStatus.classList.remove('text-green-500');
+                connectionStatus.classList.add('text-red-500');
             }
         }
 
@@ -491,6 +623,8 @@
             itemsToDisplay.forEach(item => {
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-gray-50';
+                row.dataset.itemId = item.id; // Untuk identifikasi item
+                
                 const stockPercentage = (item.stock / item.maxStock) * 100;
                 const stockColor = stockPercentage <= 15 ? 'red' : (stockPercentage <= 50 ? 'yellow' : 'green');
 
@@ -585,6 +719,7 @@
                 const stockColorBase = stockStatusClass.split('-')[0];
 
                 card.className = `stock-card ${stockStatusClass} bg-white rounded-lg shadow-sm p-4`;
+                card.dataset.itemId = item.id; // Untuk identifikasi item
                 card.innerHTML = `
                     <div class="flex items-start">
                         <div class="flex-shrink-0 h-12 w-12 bg-${stockColorBase}-100 rounded-lg flex items-center justify-center">
@@ -648,27 +783,6 @@
         }
 
         // --- Fungsi Kalender dan Pemesanan ---
-
-        async function loadOrders() {
-            try {
-                const snapshot = await db.collection("orders").get();
-                ordersData = {};
-                snapshot.docs.forEach(doc => {
-                    const order = { id: doc.id, ...doc.data() };
-                    const orderDate = order.orderDate.toDate();
-                    const dateString = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}-${String(orderDate.getDate()).padStart(2, '0')}`;
-                    if (!ordersData[dateString]) {
-                        ordersData[dateString] = [];
-                    }
-                    ordersData[dateString].push(order);
-                });
-                renderCalendar();
-                updateSelectedDayOrders(new Date());
-            } catch (error) {
-                console.error("Error loading orders:", error);
-                alert("Gagal memuat pemesanan: " + error.message);
-            }
-        }
 
         function renderCalendar() {
             const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -988,8 +1102,7 @@
                 alert('Pemesanan berhasil ditambahkan!');
                 document.querySelector('.fixed.inset-0').remove();
                 
-                // Refresh data pesanan
-                loadOrders();
+                // Tidak perlu refresh data karena real-time listener akan menangani update
                 
             } catch (error) {
                 console.error('Error adding order:', error);
@@ -1001,6 +1114,12 @@
         window.addEventListener('DOMContentLoaded', () => {
             loadItems();
             loadOrders();
+        });
+
+        // Cleanup listeners saat halaman ditutup
+        window.addEventListener('beforeunload', () => {
+            if (itemsUnsubscribe) itemsUnsubscribe();
+            if (ordersUnsubscribe) ordersUnsubscribe();
         });
     </script>
 </body>
